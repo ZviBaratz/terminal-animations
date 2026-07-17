@@ -10,9 +10,12 @@ the formula.
     go run ./cmd/preview frames 5 | scripts/ansi2png.py > /tmp/strip.png   # filmstrip
 
 Reads the `frames` dump on stdin (the `--- frame N ---` headers are recognised and
-each frame is stacked vertically with a gap). Each terminal cell becomes a solid
-block: a painted background shows as its bg colour, a glyph shows as its fg colour —
-enough to judge whether the hue varies the way the design intends.
+each frame is stacked vertically with a gap). A painted-background space shows as its
+bg colour and a glyph as its fg colour; the half-block, quadrant and full-block glyphs
+(▀▄▌▐ █ ▖▗▘▙▚▛▜▝▞▟) are split into their sub-cell fg/bg regions, so real half-block
+raster reads correctly. Sextant/octant/braille carry finer sub-cell detail than this
+coarse rasterizer resolves — they collapse to their foreground; judge those tiers on a
+real terminal or the GIF gate.
 
 Truecolor (`38;2;r;g;b` / `48;2;…`), 256-colour (`38;5;n`), and the 16 basic
 colours are understood; other SGR codes are ignored. Stdlib only (zlib for PNG).
@@ -40,6 +43,21 @@ BASIC = [
     (127, 127, 127), (255, 0, 0), (0, 255, 0), (255, 255, 0),
     (92, 92, 255), (255, 0, 255), (0, 255, 255), (255, 255, 255),
 ]
+
+# Half/quadrant/full block glyphs -> which of the four sub-quadrants are foreground.
+# Bits: UL=1, UR=2, LL=4, LR=8; the rest of the cell takes the background colour.
+QUAD = {
+    "▀": 3, "▄": 12, "▌": 5, "▐": 10, "█": 15,  # ▀▄▌▐ █
+    "▖": 4, "▗": 8, "▘": 1, "▙": 13, "▚": 9,    # ▖▗▘▙▚
+    "▛": 7, "▜": 11, "▝": 2, "▞": 6, "▟": 14,   # ▛▜▝▞▟
+}
+# Shade glyphs -> fraction of foreground blended over background.
+SHADE = {"░": 0.25, "▒": 0.5, "▓": 0.75}  # ░▒▓
+
+
+def _mix(bg, fg, a):
+    return tuple(int(round(bg[k] + (fg[k] - bg[k]) * a)) for k in range(3))
+
 
 SGR = re.compile(r"\x1b\[([0-9;]*)m")
 ANSI_ANY = re.compile(r"\x1b\[[0-9;?]*[ -/]*[@-~]")
@@ -96,7 +114,11 @@ def apply_sgr(params, fg, bg):
 
 
 def row_cells(line):
-    """A visible line -> list of (r,g,b), one per terminal cell."""
+    """A visible line -> list of cell specs, one per terminal cell.
+
+    A spec is ("solid", rgb) or ("quad", fg, bg, mask) — the latter for the
+    half/quadrant/full-block glyphs, whose sub-cell regions are painted from the
+    (fg, bg) pair the way the terminal draws them."""
     cells, fg, bg, i = [], None, None, 0
     while i < len(line):
         ch = line[i]
@@ -112,10 +134,16 @@ def row_cells(line):
                 continue
             i += 1
             continue
+        fgc = fg if fg is not None else DEF_FG
+        bgc = bg if bg is not None else DEF_BG
         if ch == " ":
-            cells.append(bg if bg is not None else DEF_BG)
+            cells.append(("solid", bgc))
+        elif ch in QUAD:
+            cells.append(("quad", fgc, bgc, QUAD[ch]))
+        elif ch in SHADE:
+            cells.append(("solid", _mix(bgc, fgc, SHADE[ch])))
         elif ch.isprintable() and ch != "\t":
-            cells.append(fg if fg is not None else DEF_FG)
+            cells.append(("solid", fgc))
         # other control chars contribute no cell
         i += 1
     return cells
@@ -150,14 +178,26 @@ def render(rows):
         for k in range(n):
             buf[base + k * width * 3: base + (k + 1) * width * 3] = one
 
+    def cell_rgb(spec, sx, sy):
+        if spec[0] == "solid":
+            return spec[1]
+        _, fgc, bgc, mask = spec
+        bit = (1 if sy < CH // 2 else 4) << (0 if sx < CW // 2 else 1)
+        return fgc if mask & bit else bgc
+
     def fill_cells(y0, cells):
-        px = bytearray(width * 3)
-        for cx in range(wcells):
-            rgb = cells[cx] if cx < len(cells) else DEF_BG
-            px[cx * CW * 3:(cx + 1) * CW * 3] = bytes(rgb) * CW
-        base = y0 * width * 3
-        for k in range(CH):
-            buf[base + k * width * 3: base + (k + 1) * width * 3] = px
+        for sy in range(CH):
+            row = bytearray(width * 3)
+            for cx in range(wcells):
+                spec = cells[cx] if cx < len(cells) else ("solid", DEF_BG)
+                if spec[0] == "solid":
+                    row[cx * CW * 3:(cx + 1) * CW * 3] = bytes(spec[1]) * CW
+                else:
+                    for sx in range(CW):
+                        off = (cx * CW + sx) * 3
+                        row[off:off + 3] = bytes(cell_rgb(spec, sx, sy))
+            base = (y0 + sy) * width * 3
+            buf[base:base + width * 3] = row
 
     y = 0
     for r in rows:
@@ -186,7 +226,13 @@ def png(width, height, rgb):
 
 
 def main():
-    rows = build_rows(sys.stdin.readlines())
+    # Read raw bytes and decode UTF-8 ourselves — the block glyphs are multibyte,
+    # so a C/POSIX-locale stdin (a sandbox, CI) must not gate on the ascii codec.
+    if hasattr(sys.stdin, "buffer"):
+        text = sys.stdin.buffer.read().decode("utf-8", "replace")
+    else:  # pragma: no cover - a stdin without a binary buffer is unusual
+        text = sys.stdin.read()
+    rows = build_rows(text.splitlines())
     if not any(r for r in rows):
         sys.stderr.write("ansi2png: no frame content on stdin\n")
         return 1

@@ -12,7 +12,9 @@ package main
 import (
 	"fmt"
 	"os"
+	"os/signal"
 	"strconv"
+	"syscall"
 	"time"
 	// TODO: import your animation package, e.g.
 	//   anim "github.com/you/yourrepo/plasma"
@@ -52,8 +54,18 @@ func main() {
 		return
 	}
 
-	fmt.Print("\x1b[?25l")       // hide cursor
-	defer fmt.Print("\x1b[?25h") // restore on exit
+	fmt.Print("\x1b[?25l") // hide cursor
+	restore := func() { fmt.Print("\x1b[?25h") }
+	defer restore()
+	// A signal-terminated Go program does NOT run deferred funcs, so a bare Ctrl-C
+	// would leave the cursor hidden. Catch it, restore, then exit.
+	sig := make(chan os.Signal, 1)
+	signal.Notify(sig, os.Interrupt, syscall.SIGTERM)
+	go func() {
+		<-sig
+		restore()
+		os.Exit(0)
+	}()
 	for tick := 0; ; tick++ {
 		frame, done := render(tick)
 		fmt.Printf("\x1b[H%s", frame) // home + paint

@@ -82,6 +82,19 @@ def main():
     assert pixel(rows3, 0, 0) == (10, 20, 30), pixel(rows3, 0, 0)
     assert pixel(rows3, 0, ch + 2) == (40, 50, 60), pixel(rows3, 0, ch + 2)
 
+    # Half-block ▀ splits into fg (top half) and bg (bottom half) — real raster,
+    # not a flat fg block. (Multibyte glyph also exercises the UTF-8 stdin path.)
+    hb = "--- frame 0 ---\n\x1b[38;2;255;0;0m\x1b[48;2;0;0;255m▀\x1b[0m\n"
+    _, _, rowsh = decode_png(run(hb.encode(), env))
+    assert pixel(rowsh, 0, 0) == (255, 0, 0), pixel(rowsh, 0, 0)            # top half = fg red
+    assert pixel(rowsh, 0, ch // 2) == (0, 0, 255), pixel(rowsh, 0, ch // 2)  # bottom half = bg blue
+
+    # Left half ▌ splits horizontally: fg (left column) vs bg (right column).
+    lh = "--- frame 0 ---\n\x1b[38;2;0;255;0m\x1b[48;2;0;0;0m▌\x1b[0m\n"
+    _, _, rowsl = decode_png(run(lh.encode(), env))
+    assert pixel(rowsl, 0, 0) == (0, 255, 0), pixel(rowsl, 0, 0)            # left col = fg green
+    assert pixel(rowsl, cw // 2, 0) == (0, 0, 0), pixel(rowsl, cw // 2, 0)  # right col = bg black
+
     print("ansi2png_test: OK")
     return 0
 

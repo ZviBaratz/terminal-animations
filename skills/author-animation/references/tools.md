@@ -55,9 +55,11 @@ No vhs and no live terminal (a sandbox, CI, an agent)? Render frames and rasteri
 to a PNG you can actually look at:
 
 ```sh
-go run ./cmd/preview frames 5 | scripts/ansi2png.py > /tmp/f.png   # then open/Read it
+go run ./cmd/preview frames 5 | ${CLAUDE_PLUGIN_ROOT}/scripts/ansi2png.py > /tmp/f.png   # then open/Read it
 ```
 
-`scripts/ansi2png.py` (stdlib-only) turns the truecolor `frames` dump into an image — the
-headless stand-in for the GIF gate. You still judge the colour by eye, never from the
-formula.
+`${CLAUDE_PLUGIN_ROOT}/scripts/ansi2png.py` (stdlib-only) turns the truecolor `frames` dump
+into an image — the headless stand-in for the GIF gate. You still judge the colour by eye,
+never from the formula. It resolves half-block, quadrant and full-block cells into their
+sub-cell fg/bg regions, but **collapses sextant/octant/braille cells to their foreground** —
+those finer tiers only read faithfully on a real terminal or the GIF gate.

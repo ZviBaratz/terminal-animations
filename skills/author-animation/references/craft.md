@@ -85,4 +85,4 @@ folding back once chosen.
 - **Outer loop (the beauty gate):** record a short GIF and **watch the motion, in
   colour**. Does it read as motion? Enough dark space? No stuck pixels or width
   bugs? Legible on a dark background? Tune, and repeat until it reads right. The
-  `scripts/` harness runs both loops.
+  `${CLAUDE_PLUGIN_ROOT}/scripts/` harness runs both loops.

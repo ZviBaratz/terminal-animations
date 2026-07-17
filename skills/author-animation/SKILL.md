@@ -21,6 +21,13 @@ stage needs them: `craft.md` (the motion/beauty rubric), `techniques.md` (resolu
 ladder, colour, dithering), `effects.md` (effects to *combine*, not copy), `tools.md`
 (providers and build-time tools — **fresco is one provider**).
 
+> **Where the bundled files live.** The references and the tuning harness ship *with the
+> plugin*, not in the user's project — reach them by absolute path, never a bare relative
+> one (a bare path resolves against the user's cwd, where these files do not exist).
+> References are in `${CLAUDE_PLUGIN_ROOT}/skills/author-animation/references/`; the harness
+> is in `${CLAUDE_PLUGIN_ROOT}/scripts/`. Paths like `./cmd/preview` *are* the user's
+> project and stay relative.
+
 ## 1 · Brief — interrogate the vision
 
 You will already ask the logistics (language, size, loop-vs-resolve, colour support,
@@ -90,7 +97,7 @@ or clamping if it differs. A **resolving** animation anchors its timeline and `D
 the constructed size, not the `View` pane, so completion never shifts with view size.
 
 **Deliverables:** the `Frame`/`Animation` code, a `cmd/preview/main.go` (copy
-`scripts/preview.go.tmpl` and wire `render()`), and a test (below).
+`${CLAUDE_PLUGIN_ROOT}/scripts/preview.go.tmpl` and wire `render()`), and a test (below).
 
 ## 3 · Compose — combine past the default
 
@@ -127,9 +134,10 @@ shows, never splitting a multibyte rune).
 
 ## Tune — the beauty gate
 
-Do not ship on "tests pass": **watch it move, in colour.** Use `scripts/` — `preview.sh`
-(live), `frames` mode for a headless structure check, `ansi2png.py` to rasterize `frames`
-into a PNG you can look at with no TTY (a sandbox, CI, an agent), `record.sh` for the GIF.
+Do not ship on "tests pass": **watch it move, in colour.** Use `${CLAUDE_PLUGIN_ROOT}/scripts/`
+— `preview.sh` (live), `frames` mode for a headless structure check, `ansi2png.py` to
+rasterize `frames` into a PNG you can look at with no TTY (a sandbox, CI, an agent),
+`record.sh` for the GIF.
 Sweep each taste constant and pick by eye. The optional **`tuner`** subagent drives this.
 
 ## Red flags
