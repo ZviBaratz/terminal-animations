@@ -1,9 +1,10 @@
 # The craft of terminal motion
 
 Universal heuristics for any terminal animation — a generative field, a sim, or a
-one-shot. These are the general statement; fresco's `new-variant` skill states the
-fresco-specific *application* of the same craft. Read this before you tune, not
-after.
+one-shot. These are the general statement of *why* motion reads; the concrete
+mechanics it leans on — the sub-cell resolution ladder, colour depth, dithering — are
+in `techniques.md`. fresco's `new-variant` skill states the fresco-specific
+*application* of the same craft. Read this before you tune, not after.
 
 ## The contract every frame keeps
 

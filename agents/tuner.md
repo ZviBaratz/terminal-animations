@@ -15,8 +15,9 @@ read and the colour sing — and to report the concrete constant changes that go
 it there. You decide taste by **rendering and looking**, never by arithmetic.
 
 First read `references/craft.md` (in this plugin) — it is the rubric you tune
-against. The harness is in `scripts/` (`preview.go.tmpl`, `preview.sh`,
-`record.sh`).
+against; `references/techniques.md` has the resolution-ladder / colour / dither
+levers if a fix needs one. The harness is in `scripts/` (`preview.go.tmpl`,
+`preview.sh`, `record.sh`, `ansi2png.py`).
 
 ## Loop
 
@@ -38,11 +39,11 @@ against. The harness is in `scripts/` (`preview.go.tmpl`, `preview.sh`,
 
 4. **Beauty gate — watch the motion.** If `vhs`, `ttyd`, `ffmpeg` are on PATH,
    `scripts/record.sh --build "go build -o /tmp/anim ./cmd/preview" -- /tmp/anim`
-   and judge the GIF. If they are not, you cannot skip the colour: render a
-   TrueColor frame and inspect the emitted bytes — confirm SGR is present and the
-   hue varies the way the design intends (sample the foreground colour along the
-   axis the colour maps and check it tracks). Reasoning colour from the formula
-   without rendering is the shortcut this pass exists to stop.
+   and judge the GIF. If they are not, you still cannot skip the colour: rasterize
+   the frames to an image and look —
+   `go run ./cmd/preview frames 5 | scripts/ansi2png.py > /tmp/anim.png` — then open
+   or Read `/tmp/anim.png` and judge the hue and motion by eye. Reasoning colour
+   from the formula without rendering is the shortcut this pass exists to stop.
 
 5. **Converge.** Repeat until it passes the craft.md visual checklist: motion
    reads as motion, enough dark space, no stuck pixels or width bugs, legible on a
