@@ -1,0 +1,23 @@
+{
+  "name": "terminal-animations",
+  "description": "Author beautiful terminal ASCII/ANSI animations. Routes each idea to its right home — a fresco field variant, or a standalone animation — then helps you ship it tested and visually tuned with a vhs/GIF preview harness.",
+  "version": "0.1.0",
+  "author": {
+    "name": "Zvi Baratz",
+    "email": "z.baratz@gmail.com"
+  },
+  "homepage": "https://github.com/ZviBaratz/terminal-animations",
+  "repository": "https://github.com/ZviBaratz/terminal-animations",
+  "license": "MIT",
+  "keywords": [
+    "animation",
+    "terminal",
+    "ascii",
+    "ansi",
+    "tui",
+    "generative",
+    "fresco",
+    "vhs",
+    "gif"
+  ]
+}

@@ -1,0 +1,11 @@
+# Editor / OS cruft
+.DS_Store
+.idea/
+.vscode/
+
+# Generated preview / recording artifacts (the harness writes here)
+/out/
+*.gif
+!docs/*.gif
+*.cast
+*.log

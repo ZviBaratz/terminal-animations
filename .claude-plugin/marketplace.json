@@ -1,0 +1,20 @@
+{
+  "name": "terminal-animations",
+  "description": "Authoring tools for beautiful terminal animations.",
+  "owner": {
+    "name": "Zvi Baratz",
+    "email": "z.baratz@gmail.com"
+  },
+  "plugins": [
+    {
+      "name": "terminal-animations",
+      "description": "Author beautiful terminal ASCII/ANSI animations: route each idea to the right home, then ship it tested and visually tuned.",
+      "version": "0.1.0",
+      "source": "./",
+      "author": {
+        "name": "Zvi Baratz",
+        "email": "z.baratz@gmail.com"
+      }
+    }
+  ]
+}
