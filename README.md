@@ -11,6 +11,11 @@ conventional default, builds it to a tested convention, and finishes at a beauty
 encoding the hard-won craft of terminal motion so a new animation starts *good* rather
 than random.
 
+![a half-block truecolor plasma — the bundled reference animation](docs/plasma.gif)
+
+*The bundled [reference animation](examples/plasma): a pure, deterministic half-block
+plasma — designed palette, orbiting focus, edge vignette — tuned at the beauty gate.*
+
 ## Why a skill, not a snippet
 
 The default answer to "make a cool terminal animation" is one effect, in flat 1×1 ASCII
@@ -72,6 +77,9 @@ on any `(w, h, tick)`, determinism where pure, and a golden frame.
   that rasterizes frames to a PNG when there's no terminal (a sandbox, CI, an agent).
   The GIF path needs `vhs`, `ttyd`, and `ffmpeg`.
 - `agents/tuner.md` — an optional subagent that drives the render → look → tune loop.
+- `examples/plasma/` — a **reference animation**: a pure, deterministic half-block
+  truecolor plasma built to the standalone convention, with its preview, golden test,
+  and the `docs/plasma.gif` above — a worked example the skill can point at.
 
 ## Install
 
