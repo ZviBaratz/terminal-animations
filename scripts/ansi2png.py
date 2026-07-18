@@ -20,8 +20,12 @@ real terminal or the GIF gate.
 Truecolor (`38;2;r;g;b` / `48;2;…`), 256-colour (`38;5;n`), and the 16 basic
 colours are understood; other SGR codes are ignored. Stdlib only (zlib for PNG).
 
-Env knobs: ANSI2PNG_CW (cell px width, default 7), ANSI2PNG_CH (cell px height,
-default 14). Cells are drawn taller than wide to match a terminal.
+Cell size: --cw / --ch flags, else the ANSI2PNG_CW / ANSI2PNG_CH env vars, else 7x14
+(cells are drawn taller than wide to match a terminal). Prefer the flags — an env var
+set before the producer in a pipe (`ANSI2PNG_CW=8 go run ... | ansi2png.py`) applies to
+the producer, not to ansi2png, so it is silently ignored; a flag can't be misdirected:
+
+    go run ./cmd/preview frames 5 | ansi2png.py --cw 8 --ch 16 > /tmp/anim.png
 """
 import os
 import re
@@ -29,8 +33,10 @@ import struct
 import sys
 import zlib
 
-CW = int(os.environ.get("ANSI2PNG_CW", "7"))
-CH = int(os.environ.get("ANSI2PNG_CH", "14"))
+CW_DEFAULT = 7
+CH_DEFAULT = 14
+CW = CW_DEFAULT  # cell px width; resolved from flag > env > default in _parse_args
+CH = CH_DEFAULT  # cell px height; resolved from flag > env > default in _parse_args
 GAP_H = 2
 GAP_RGB = (48, 48, 48)
 DEF_FG = (200, 200, 200)
@@ -225,7 +231,60 @@ def png(width, height, rgb):
             + chunk(b"IDAT", zlib.compress(bytes(raw), 9)) + chunk(b"IEND", b""))
 
 
+def _cell_px(raw, source):
+    """Validate one cell-size value (from a flag or env var), or exit(2) with a clear
+    message naming `source` (e.g. `--cw` or `ANSI2PNG_CW`)."""
+    try:
+        val = int(raw)
+    except ValueError:
+        sys.stderr.write("ansi2png: %s needs an integer, got %r\n" % (source, raw))
+        sys.exit(2)
+    if val < 1:
+        sys.stderr.write("ansi2png: %s must be >= 1\n" % source)
+        sys.exit(2)
+    return val
+
+
+def _resolve(flag, flags, env, default):
+    """Cell size for one axis: flag > env > default, every source validated the same way
+    so a garbage env var can't crash the run (and an explicit flag always overrides it)."""
+    if flag in flags:
+        return _cell_px(flags[flag], flag)
+    if os.environ.get(env) is not None:
+        return _cell_px(os.environ[env], env)
+    return default
+
+
+def _parse_args(argv):
+    """Resolve CW/CH with precedence flag > env > default. A tiny manual parser so the
+    bare `... | ansi2png.py` path stays argument-free."""
+    global CW, CH
+    if "-h" in argv or "--help" in argv:
+        sys.stdout.write(__doc__)
+        sys.exit(0)
+    flags = {}
+    i = 0
+    while i < len(argv):
+        a = argv[i]
+        if a in ("--cw", "--ch"):
+            i += 1
+            if i >= len(argv):
+                sys.stderr.write("ansi2png: %s needs an integer\n" % a)
+                sys.exit(2)
+            key, raw = a, argv[i]
+        elif a.startswith("--cw=") or a.startswith("--ch="):
+            key, raw = a.split("=", 1)
+        else:
+            sys.stderr.write("ansi2png: unknown argument %r\n" % a)
+            sys.exit(2)
+        flags[key] = raw
+        i += 1
+    CW = _resolve("--cw", flags, "ANSI2PNG_CW", CW_DEFAULT)
+    CH = _resolve("--ch", flags, "ANSI2PNG_CH", CH_DEFAULT)
+
+
 def main():
+    _parse_args(sys.argv[1:])
     # Read raw bytes and decode UTF-8 ourselves — the block glyphs are multibyte,
     # so a C/POSIX-locale stdin (a sandbox, CI) must not gate on the ascii codec.
     if hasattr(sys.stdin, "buffer"):
