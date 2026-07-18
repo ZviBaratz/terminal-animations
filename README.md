@@ -85,7 +85,7 @@ on any `(w, h, tick)`, determinism where pure, and a golden frame.
 
 ```
 /plugin marketplace add ZviBaratz/terminal-animations
-/plugin install terminal-animations@terminal-animations
+/plugin install terminal-animations@zvibaratz
 ```
 
 Then just ask for an animation ("a mesmerizing plasma splash", "a hyperspace intro", "a
