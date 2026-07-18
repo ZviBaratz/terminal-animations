@@ -5,77 +5,100 @@
 A Claude Code plugin for **authoring beautiful terminal animations** — ASCII/ANSI
 motion of any kind, for splash screens, loaders, demos, or just delight.
 
-It does one thing well: when you ask for a terminal animation, it **routes the
-idea to the right home** and then helps you ship it *tested and visually tuned*,
-encoding the hard-won craft of terminal motion so a new animation starts good
-rather than random.
+It turns Claude into an expert at terminal motion: when you ask for an animation, it
+**interrogates the vision**, **composes** technique and style into something past the
+conventional default, builds it to a tested convention, and finishes at a beauty gate —
+encoding the hard-won craft of terminal motion so a new animation starts *good* rather
+than random.
 
-## The routing rule
+![a half-block truecolor plasma — the bundled reference animation](docs/plasma.gif)
 
-There is no one-size interface for terminal motion — a generative field and a
-game-of-life sim want different shapes. The plugin picks:
+*The bundled [reference animation](examples/plasma): a pure, deterministic half-block
+plasma — designed palette, orbiting focus, edge vignette — tuned at the beauty gate.*
+
+## Why a skill, not a snippet
+
+The default answer to "make a cool terminal animation" is one effect, in flat 1×1 ASCII
+glyphs, with functional colour — competent and forgettable. A *mesmerizing* one is
+composed: a deliberate fidelity tier, a designed palette, layered effects, tuned by eye.
+The skill exists to get the second thing, every time.
+
+It carries four references, pulled in as a job needs them:
+
+- **`craft.md`** — the universal motion/beauty rubric (why motion reads: leading edge +
+  trail, negative space, the two brightness channels, tune-by-looking).
+- **`techniques.md`** — the technical palette: the sub-cell **resolution ladder**
+  (half-block → sextant → octant → braille), colour depth, and dithering.
+- **`effects.md`** — the demoscene/prior-art catalog (plasma, tunnel, fire, starfield,
+  donut, Life, rain…) as springboards to *combine*, not copy.
+- **`tools.md`** — the ecosystem: providers and build-time tools (chafa, notcurses,
+  ffmpeg…), with **fresco** as one Go generative-field provider among them.
+
+## The target: where an animation lives
+
+Routing is one early step, not the whole skill. Field-shaped effects have a home:
 
 | If the animation is… | It belongs in… |
 |---|---|
-| full-pane, a pure function of `(position, frame)`, palette-gradient coloured, loops forever, no subject | **a [fresco](https://github.com/ZviBaratz/fresco) field variant** |
-| stateful (a sim), or has a subject/sprite, or *resolves* (a one-shot that ends), or is non-field motion | **a standalone animation** |
+| full-pane, a pure function of `(position, frame)`, gradient-coloured, loops forever, no subject | **a [fresco](https://github.com/ZviBaratz/fresco) field variant** (when you're in the fresco repo) |
+| stateful (a sim), has a subject/sprite, *resolves* (a one-shot), or is non-field motion | **a standalone animation** |
 
-- **fresco variant** — a new field for fresco's roster (rain, tunnel, ripple,
-  galaxy, …). When routing lands here **and you are inside the fresco repo**, the
-  plugin defers to fresco's own `new-variant` skill and follows it — an
-  instruction-level hand-off, never a duplicate of fresco's contract. Outside the
-  fresco repo, that path isn't available, so the plugin does the standalone path.
-- **standalone animation** — authored here, to a small deliberate convention (see
-  the skill), with a preview loop and a golden/contract test.
+For a fresco variant *inside the fresco repo*, the plugin defers to fresco's own
+`new-variant` skill — an instruction-level hand-off, never a duplicate of fresco's
+contract. Everything else is authored here, to a small deliberate convention.
 
 ## The standalone convention
 
-Chosen from real examples, not guessed — and the deliberate seed of a possible
-future library:
+Chosen from real examples, not guessed — and the deliberate seed of a possible future
+library:
 
 ```go
-// pure, free-running (a plasma, a starfield):
+// pure, free-running (a plasma, a starfield): frame N from N alone
 func Frame(w, h, tick int) string
 
 // stateful or resolving (game of life, a typewriter, a wipe):
 type Animation interface {
-    Update(tick int)      // advance state
+    Update(tick int)      // advance state to the absolute frame `tick`
     View(w, h int) string // render current state to exactly h lines of w cells
     Done() bool           // true once a one-shot has resolved; always false for a loop
 }
 ```
 
-Plus a `cmd/preview/main.go` loop to watch it, and a test pinning the `h×w`
-contract, no-panic on any `(w, h, tick)`, determinism where pure, and a golden
-frame.
+A pure `Frame` requires closed-form-of-`tick`, loops-forever, and no carried state;
+anything that resolves (needs `Done()`) or carries state is an `Animation`. Plus a
+`cmd/preview/main.go` loop to watch it, and a test pinning the `h×w` contract, no-panic
+on any `(w, h, tick)`, determinism where pure, and a golden frame.
 
 ## What's inside
 
-- `skills/author-animation/` — the routing skill and the standalone authoring
-  path (`references/craft.md` holds the universal motion/beauty heuristics).
-- `scripts/` — the tuning harness: a live preview runner, a vhs GIF recorder, and
-  a frame dumper for structural checks. Needs `vhs`, `ttyd`, and `ffmpeg` for the
-  GIF path.
-- `agents/tuner.md` — an optional subagent that drives the render → look → tune
-  loop for you.
+- `skills/author-animation/` — the authoring skill and its four references.
+- `scripts/` — the tuning harness: a live preview runner (`preview.sh`), a vhs GIF
+  recorder (`record.sh`), a frame dumper, and `ansi2png.py` — a headless colour gate
+  that rasterizes frames to a PNG when there's no terminal (a sandbox, CI, an agent).
+  The GIF path needs `vhs`, `ttyd`, and `ffmpeg`.
+- `agents/tuner.md` — an optional subagent that drives the render → look → tune loop.
+- `examples/plasma/` — a **reference animation**: a pure, deterministic half-block
+  truecolor plasma built to the standalone convention, with its preview, golden test,
+  and the `docs/plasma.gif` above — a worked example the skill can point at.
 
 ## Install
 
 ```
 /plugin marketplace add ZviBaratz/terminal-animations
-/plugin install terminal-animations@terminal-animations
+/plugin install terminal-animations@zvibaratz
 ```
 
-Then just ask for an animation ("a plasma splash", "a typewriter intro", "a new
-fresco variant") — the `author-animation` skill triggers on its own.
+Then just ask for an animation ("a mesmerizing plasma splash", "a hyperspace intro", "a
+new fresco variant") — the `author-animation` skill triggers on its own.
 
 ## Scope
 
-In scope: producing a tested, tuned animation plus a preview. Out of scope:
-wiring it into a specific app's splash/cycling harness (a separate step), runtime
-LLM generation (never put a model in a 60fps render loop), and building a
-standalone animation *library/registry* now — the convention above keeps that
-door open without walking through it yet.
+In scope: producing a tested, tuned, self-contained animation plus a preview, using the
+ecosystem's techniques and build-time tools. Out of scope (for now): wiring it into a
+specific app's splash/cycling harness (a separate step); **runtime** multi-tool
+pipelines and graphics-protocol pieces (sixel/kitty — a deliberate future door, kept
+open by the self-contained convention); runtime LLM generation (never put a model in a
+60fps render loop); and building a standalone animation *library/registry* now.
 
 ## License
 

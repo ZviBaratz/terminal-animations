@@ -9,3 +9,7 @@
 !docs/*.gif
 *.cast
 *.log
+
+# Python
+__pycache__/
+*.pyc

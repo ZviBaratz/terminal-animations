@@ -3,60 +3,74 @@ name: author-animation
 description: >-
   Use when building any terminal / ASCII / ANSI animation — a splash screen, a
   loader or spinner, a generative background, a game-of-life-style sim, a
-  typewriter or reveal, plasma, a starfield, digital rain, or any moving terminal
-  graphic — and when deciding whether such an animation belongs in fresco or
-  stands on its own.
+  typewriter or reveal, plasma, a starfield, digital rain, a "mesmerizing" or
+  "jaw-dropping" terminal effect, or any moving terminal graphic — and when
+  deciding whether such an animation belongs in fresco or stands on its own.
 ---
 
 # Authoring a terminal animation
 
 ## Overview
 
-Terminal motion has no single right shape — a generative field and a game-of-life
-sim want different code. So this skill **routes first**, builds to the convention
-that fits, and finishes at a beauty gate: every animation ships *tested and
-visually tuned*.
+A conventional terminal animation is one effect, in flat 1×1 ASCII glyphs, with
+functional colour. A *mesmerizing* one is composed: a deliberate fidelity tier, a
+designed palette, layered effects, tuned by eye. This skill is the process that gets the
+second thing — **interrogate the vision → choose the target → compose past the default →
+build to a testable convention → tune at a beauty gate.** Pull in the references as a
+stage needs them: `craft.md` (the motion/beauty rubric), `techniques.md` (resolution
+ladder, colour, dithering), `effects.md` (effects to *combine*, not copy), `tools.md`
+(providers and build-time tools — **fresco is one provider**).
 
-Two companions: `references/craft.md` is the universal craft — read it, it's the
-rubric you tune against. For a fresco field variant, fresco's own `new-variant`
-skill owns the contract and this skill hands off to it.
+> **Where the bundled files live.** The references and the tuning harness ship *with the
+> plugin*, not in the user's project — reach them by absolute path, never a bare relative
+> one (a bare path resolves against the user's cwd, where these files do not exist).
+> References are in `${CLAUDE_PLUGIN_ROOT}/skills/author-animation/references/`; the harness
+> is in `${CLAUDE_PLUGIN_ROOT}/scripts/`. Paths like `./cmd/preview` *are* the user's
+> project and stay relative.
 
-## Route first
+## 1 · Brief — interrogate the vision
 
-Decide the target before writing code. Ask, in order:
+You will already ask the logistics (language, size, loop-vs-resolve, colour support,
+skippable) — those are cheap. The expert questions, usually skipped, are about **taste**:
 
-1. **Is it a field?** — full-pane, a pure function of `(position, frame)`,
-   palette-gradient coloured, loops forever, with *no subject or sprite* (plasma,
-   rain, aurora, a starfield).
-   - **…and you are inside the fresco repo** → it's a **fresco variant** → §A.
-   - **…but you are not in the fresco repo** → you can't author a fresco variant
-     from outside it, so build the same idea as a **standalone pure field** → §B.
-2. **Otherwise** — it's stateful (carries a grid / particles), or has a
-   subject/sprite, or *resolves* (a one-shot that ends), or is non-field motion →
-   **standalone** → §B.
+- **The feeling & the reference.** What should it *evoke*? A reference image, a demo, an
+  effect to echo or subvert? "Mesmerizing" is not a spec; a mood or a reference is.
+- **The fidelity intent.** Typographic (glyph ramp), colour raster (half-block →
+  sextant), or fine mono detail (braille)? A design decision from `techniques.md` — name
+  it now, don't default it.
+- **What makes *this* one special.** The transcendent pieces have one idea the generic
+  version lacks. Find it before writing code.
 
-| The animation is… | Target |
-|---|---|
-| full-pane, pure `f(pos, frame)`, gradient, loops forever, no subject, **in fresco** | fresco variant (§A) |
-| that same field shape, **outside fresco** | standalone, pure `Frame` (§B) |
-| stateful / has a subject / resolves / non-field | standalone (§B) |
+Ask **few and sharp** — only where the answer changes the build; default the rest and
+say so. Then **state the concept back in one line** and build to it.
 
-The dividing question: **"is frame N a closed-form function of N, with no
-subject?"** Yes → a field. No → a stateful standalone.
+## 2 · Select the target
+
+Ask, in order:
+
+1. **Is it field-shaped?** — full-pane, a pure function of `(position, frame)`,
+   gradient-coloured, loops forever, *no subject or sprite* (plasma, rain, aurora, a
+   starfield without streaks). **Inside the fresco repo** → a **fresco variant** (§A);
+   **outside it** → the same idea as a **standalone pure field** (§B).
+2. **Otherwise** — stateful (a grid / particles), a subject/sprite, *resolves* (a
+   one-shot that ends), or non-field motion → **standalone** (§B).
+
+"Field-shaped" is the *shape*; "fresco variant" is a *destination* you can only reach
+from inside fresco. A field shape outside fresco is still a standalone pure `Frame`.
 
 ## §A — Fresco variant: hand off, don't re-derive
 
-When the target is a fresco variant and you are in the fresco repo, **invoke
-fresco's `new-variant` skill and follow it.** That skill owns fresco's contract —
-the `splashPointFn` shape, the registration touchpoints, the test guards. Do not
-reconstruct that checklist here: duplicating it is exactly how the two drift
-apart. This skill's whole job for a variant is to route you there.
+Inside the fresco repo, **invoke fresco's `new-variant` skill and follow it.** It owns
+fresco's contract — the `splashPointFn` shape, the registration touchpoints, the test
+guards. Do not reconstruct that checklist here; duplicating it is how the two drift
+apart. Routing you there is this skill's whole job for a variant. (fresco is also a
+*provider* usable from outside — see `tools.md` — but a *new* variant is authored in the
+repo.)
 
 ## §B — Standalone animation: the convention
 
-Author to this deliberately small, framework-free convention — chosen over pulling
-in a TUI framework so the animation stays snapshot-testable and portable, and as
-the seed of a possible future library:
+A small, framework-free convention — so the animation stays snapshot-testable and
+portable, and seeds a possible future library:
 
 ```go
 // pure & free-running (a plasma, a starfield): frame N from N alone
@@ -64,70 +78,77 @@ func Frame(w, h, tick int) string
 
 // stateful or resolving (game of life, a typewriter, a wipe):
 type Animation interface {
-    Update(tick int)      // advance carried state
+    Update(tick int)      // advance carried state to absolute frame `tick`
     View(w, h int) string // render current state: exactly h lines of w cells
     Done() bool           // true once a one-shot resolves; always false for a loop
 }
 ```
 
-The animation's *own shape* is this and only this. Driving it inside an
-interactive program (Bubble Tea, a splash harness, a cycling menu) is a separate
-integration step, out of scope here — keep it out of the animation's core.
+**Which shape.** A pure `Frame` requires *all* of: closed-form of `tick`, loops forever,
+carries no state. If it **resolves** (needs `Done()`) or **carries state**, it is an
+`Animation` — even a one-shot wipe whose fill is closed-form (`filled == tick`), because
+a pure `Frame` has no channel to signal completion.
 
-A stateful `Animation` **owns its own dimensions**: construct it with the size it
-should simulate, advance it with `Update(tick)` (which takes no size), and let
-`View(w, h)` render the current state into the requested pane — re-seeding or
-clamping if that size differs from the one it was built with.
+**Update / View / size.** `Update(tick)` takes the **absolute** frame counter (the same
+`tick` a pure `Frame` gets, not a delta), so it is idempotent for a given `tick`. An
+`Animation` **owns its dimensions**: construct it with the size to simulate, advance with
+`Update(tick)` (no size), and let `View(w, h)` render into the requested pane, re-seeding
+or clamping if it differs. A **resolving** animation anchors its timeline and `Done()` to
+the constructed size, not the `View` pane, so completion never shifts with view size.
 
 **Deliverables:** the `Frame`/`Animation` code, a `cmd/preview/main.go` (copy
-`scripts/preview.go.tmpl` and wire `render()`), and a test (below).
+`${CLAUDE_PLUGIN_ROOT}/scripts/preview.go.tmpl` and wire `render()`), and a test (below).
 
-## The contract every animation keeps
+## 3 · Compose — combine past the default
 
-From `craft.md` — hold every animation to it, field or standalone:
+The generic answer to any brief is one effect in flat ASCII. Compose past it:
 
-- **Shape:** exactly `h` lines of exactly `w` visible cells (`""` for a degenerate
-  pane). **Width-1 glyphs only**; index glyph sets as `[]rune`, never `string`. For
-  a smooth luminance field, the width-1-safe cell is a *space painted with a
-  background colour* — no glyph set, no width traps; keep glyph ramps for texture.
-- **Determinism:** a pure `Frame` takes animation only through `tick` and
-  randomness only through an integer coordinate hash — so it is snapshot-testable.
-  A stateful `Animation` can't be pure over `tick`, but pin a fixed seed and a
-  fixed update order so its goldens are stable.
-- **Craft:** motion wants a leading edge + trail; real negative space (a glyph in
-  *every* cell is texture, not weather); no fixed bright points over moving parts;
-  brightness split across glyph density vs colour luminance. **Tune by rendering a
-  sweep and looking, not by arithmetic.**
+- **Pick a fidelity tier deliberately** (`techniques.md`) — half-block raster and braille
+  detail are higher objects than the `.·+*#@` ramp. Don't settle for 1×1 ASCII by reflex.
+- **Design the palette**, don't pick colours functionally. Split brightness across the
+  two channels — glyph density vs colour luminance (`craft.md`) — and dither gradients
+  (Bayer for motion, `techniques.md`).
+- **Layer.** A slow field wash (luminance) *behind* a subject/particles, with a focal
+  **vignette** tying them, reads as intentional depth, not noise.
+- **Reach the ecosystem** (`tools.md`, `effects.md`) — the **fresco** provider for a
+  rain/tunnel/ripple/galaxy field; a **chafa/ffmpeg** source baked at build time; drive
+  one effect with another. Don't rebuild what exists.
+- **Keep it deterministic** so it stays testable.
 
-## Test it
+## The contract, and the test
 
-- **Bounds & safety:** exactly `h`×`w` across a spread of sizes; no panic on any
-  `(w, h, tick)`, including tiny and zero-area panes.
-- **Determinism:** a pure `Frame` → a golden frame is byte-stable, and
-  `Frame(w,h,t) == Frame(w,h,t)`.
-- **Stateful → canonical goldens:** the crisp assertions the thing admits — a Life
-  blinker oscillates period-2, a glider returns to its shape shifted by (1,1) after
-  4 steps, a still-life is fixed; a typewriter's `Done()` flips exactly when the
-  last rune shows, and never splits a multibyte rune.
+Every animation, field or standalone (full rubric: `craft.md`):
+
+- **Shape:** exactly `h` lines of `w` visible cells (`""` for a degenerate pane).
+  **Width-1 glyphs only**, indexed as `[]rune` not `string`; the width-1-safe "pixel" is
+  a *space painted with a background colour*.
+- **Determinism:** a pure `Frame` takes animation only through `tick`, randomness only
+  through an integer coordinate hash — so it is snapshot-testable. A stateful `Animation`
+  pins a fixed seed and update order so its goldens are stable.
+
+Test: exact `h`×`w` across a spread of sizes, no panic on any `(w, h, tick)` including
+tiny and zero-area panes; a pure `Frame` is byte-stable (`Frame(w,h,t) == Frame(w,h,t)`);
+stateful things get canonical goldens (a Life blinker is period-2, a glider returns
+shifted by (1,1) after 4 steps; a typewriter's `Done()` flips exactly when the last rune
+shows, never splitting a multibyte rune).
 
 ## Tune — the beauty gate
 
-Do not ship on "tests pass": **watch it move, in colour.** Use `scripts/` —
-`preview.sh` (live), the `frames` mode for a headless structure + SGR-bytes check,
-`record.sh` for the GIF. Sweep each taste constant and pick by eye (see
-`craft.md`). The optional **`tuner`** subagent drives this loop for you.
+Do not ship on "tests pass": **watch it move, in colour.** Use `${CLAUDE_PLUGIN_ROOT}/scripts/`
+— `preview.sh` (live), `frames` mode for a headless structure check, `ansi2png.py` to
+rasterize `frames` into a PNG you can look at with no TTY (a sandbox, CI, an agent),
+`record.sh` for the GIF.
+Sweep each taste constant and pick by eye. The optional **`tuner`** subagent drives this.
 
 ## Red flags
 
-- Reaching for **Bubble Tea / `tea.Model` as the animation's shape.** That's a run
-  loop, not the animation — the animation is a `Frame`/`Animation` (§B); wiring it
-  into a TUI is a later, separate step.
-- **Re-deriving fresco's variant checklist** while in the fresco repo. Hand off to
-  `new-variant` (§A); don't duplicate the contract.
-- "It's a field, but I'm not in fresco, so I'm stuck." → Build it standalone as a
-  pure `Frame` (§B). fresco is where variants *live*, not the only way to make a
-  field.
-- "Bounds pass, the tests are green." → You haven't seen the colour move. Run the
-  beauty gate.
-- Motion from a wall clock, or randomness from `math/rand`, in a pure animation. →
-  Breaks determinism; drive motion from `tick`, randomness from a coordinate hash.
+- **Settling for 1×1 ASCII glyphs** when the resolution ladder would look far better — the
+  flat `.·+*#@` starfield is the conventional default; climb.
+- **Functional colour** (grey→white→cyan by reflex) instead of a *designed* palette.
+- **Rebuilding rain / tunnel / ripple / galaxy** instead of using the fresco provider.
+- **Interrogating the author** about what you could just default.
+- **Bubble Tea / `tea.Model` as the animation's shape** — that's a run loop; the animation
+  is a `Frame`/`Animation` (§B), wired into a TUI later.
+- **Re-deriving fresco's variant checklist** in the fresco repo — hand off (§A).
+- "Bounds pass, tests green" → you haven't seen the colour move. Run the beauty gate.
+- Motion from a wall clock, or `math/rand`, in a pure animation → breaks determinism.

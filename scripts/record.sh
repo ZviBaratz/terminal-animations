@@ -73,7 +73,9 @@ if [[ -n "$missing" ]]; then
 fi
 
 mkdir -p "$(dirname "$OUT")"
-tape="$(mktemp "${TMPDIR:-/tmp}/anim-XXXXXX.tape")"
+# Trailing X's only — BSD/macOS mktemp rejects a template with a suffix after the
+# X's; vhs reads the tape by content, so it needs no .tape extension.
+tape="$(mktemp "${TMPDIR:-/tmp}/anim-XXXXXX")"
 trap 'rm -f "$tape"' EXIT
 
 {

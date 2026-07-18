@@ -1,0 +1,103 @@
+#!/usr/bin/env python3
+"""Golden-ish functional test for ansi2png.py. Stdlib only; no PIL.
+
+Runs the script as a subprocess on crafted ANSI input, decodes the PNG back
+(zlib inflate of IDAT), and asserts sampled pixels are the intended colour.
+
+    python3 scripts/ansi2png_test.py   # exits 0 on pass
+"""
+import os
+import struct
+import subprocess
+import sys
+import zlib
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+SCRIPT = os.path.join(HERE, "ansi2png.py")
+
+
+def decode_png(data):
+    assert data[:8] == b"\x89PNG\r\n\x1a\n", "bad PNG signature"
+    pos, width, height, idat = 8, None, None, b""
+    while pos < len(data):
+        (length,) = struct.unpack(">I", data[pos:pos + 4])
+        typ = data[pos + 4:pos + 8]
+        chunk = data[pos + 8:pos + 8 + length]
+        if typ == b"IHDR":
+            width, height, bit_depth, color_type = struct.unpack(">IIBB", chunk[:10])
+            assert (bit_depth, color_type) == (8, 2), "expected 8-bit RGB"
+        elif typ == b"IDAT":
+            idat += chunk
+        pos += 12 + length
+    raw = zlib.decompress(idat)
+    stride = width * 3
+    rows = []
+    for y in range(height):
+        start = y * (stride + 1)
+        assert raw[start] == 0, "expected filter 0"
+        rows.append(raw[start + 1:start + 1 + stride])
+    return width, height, rows
+
+
+def pixel(rows, x, y):
+    r = rows[y]
+    return (r[x * 3], r[x * 3 + 1], r[x * 3 + 2])
+
+
+def run(stdin_bytes, env=None):
+    e = dict(os.environ)
+    e.update(env or {})
+    p = subprocess.run([sys.executable, SCRIPT], input=stdin_bytes,
+                       stdout=subprocess.PIPE, env=e, check=True)
+    return p.stdout
+
+
+def main():
+    cw, ch = 4, 4
+    env = {"ANSI2PNG_CW": str(cw), "ANSI2PNG_CH": str(ch)}
+
+    # One frame, two cells: a bg-painted red space, then a green '#'.
+    frame = ("--- frame 0 ---\n"
+             "\x1b[48;2;255;0;0m \x1b[0m\x1b[38;2;0;255;0m#\x1b[0m\n")
+    w, h, rows = decode_png(run(frame.encode(), env))
+    assert (w, h) == (2 * cw, ch), (w, h)
+    assert pixel(rows, 0, 0) == (255, 0, 0), pixel(rows, 0, 0)          # cell 0 = red bg
+    assert pixel(rows, cw, 0) == (0, 255, 0), pixel(rows, cw, 0)        # cell 1 = green fg
+
+    # 256-colour and basic-colour paths resolve to real RGB (not default).
+    frame2 = "--- frame 0 ---\n\x1b[48;5;196m \x1b[0m\n"                # xterm 196 ~ bright red
+    _, _, rows2 = decode_png(run(frame2.encode(), env))
+    assert pixel(rows2, 0, 0) == (255, 0, 0), pixel(rows2, 0, 0)
+
+    # Out-of-range colour values (a buggy animation) clamp instead of crashing.
+    bad = "--- frame 0 ---\n\x1b[48;2;300;0;0m \x1b[0m\n"
+    _, _, rowsb = decode_png(run(bad.encode(), env))
+    assert pixel(rowsb, 0, 0) == (255, 0, 0), pixel(rowsb, 0, 0)        # 300 clamped to 255
+
+    # Two frames stack vertically with a gap row between them.
+    two = ("--- frame 0 ---\n\x1b[48;2;10;20;30m \x1b[0m\n"
+           "--- frame 1 ---\n\x1b[48;2;40;50;60m \x1b[0m\n")
+    w3, h3, rows3 = decode_png(run(two.encode(), env))
+    assert h3 == ch + 2 + ch, h3                                       # frame + GAP_H(2) + frame
+    assert pixel(rows3, 0, 0) == (10, 20, 30), pixel(rows3, 0, 0)
+    assert pixel(rows3, 0, ch + 2) == (40, 50, 60), pixel(rows3, 0, ch + 2)
+
+    # Half-block ▀ splits into fg (top half) and bg (bottom half) — real raster,
+    # not a flat fg block. (Multibyte glyph also exercises the UTF-8 stdin path.)
+    hb = "--- frame 0 ---\n\x1b[38;2;255;0;0m\x1b[48;2;0;0;255m▀\x1b[0m\n"
+    _, _, rowsh = decode_png(run(hb.encode(), env))
+    assert pixel(rowsh, 0, 0) == (255, 0, 0), pixel(rowsh, 0, 0)            # top half = fg red
+    assert pixel(rowsh, 0, ch // 2) == (0, 0, 255), pixel(rowsh, 0, ch // 2)  # bottom half = bg blue
+
+    # Left half ▌ splits horizontally: fg (left column) vs bg (right column).
+    lh = "--- frame 0 ---\n\x1b[38;2;0;255;0m\x1b[48;2;0;0;0m▌\x1b[0m\n"
+    _, _, rowsl = decode_png(run(lh.encode(), env))
+    assert pixel(rowsl, 0, 0) == (0, 255, 0), pixel(rowsl, 0, 0)            # left col = fg green
+    assert pixel(rowsl, cw // 2, 0) == (0, 0, 0), pixel(rowsl, cw // 2, 0)  # right col = bg black
+
+    print("ansi2png_test: OK")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

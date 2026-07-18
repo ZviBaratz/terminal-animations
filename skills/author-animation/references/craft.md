@@ -1,9 +1,10 @@
 # The craft of terminal motion
 
 Universal heuristics for any terminal animation — a generative field, a sim, or a
-one-shot. These are the general statement; fresco's `new-variant` skill states the
-fresco-specific *application* of the same craft. Read this before you tune, not
-after.
+one-shot. These are the general statement of *why* motion reads; the concrete
+mechanics it leans on — the sub-cell resolution ladder, colour depth, dithering — are
+in `techniques.md`. fresco's `new-variant` skill states the fresco-specific
+*application* of the same craft. Read this before you tune, not after.
 
 ## The contract every frame keeps
 
@@ -84,4 +85,4 @@ folding back once chosen.
 - **Outer loop (the beauty gate):** record a short GIF and **watch the motion, in
   colour**. Does it read as motion? Enough dark space? No stuck pixels or width
   bugs? Legible on a dark background? Tune, and repeat until it reads right. The
-  `scripts/` harness runs both loops.
+  `${CLAUDE_PLUGIN_ROOT}/scripts/` harness runs both loops.

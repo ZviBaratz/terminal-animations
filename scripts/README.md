@@ -11,6 +11,7 @@ colour.
 | `preview.go.tmpl` | Copy to `cmd/preview/main.go` and wire `render()` to your animation. Runs a live loop, or `frames N` to dump frames to stdout. |
 | `preview.sh` | Thin wrapper that runs the preview program live (`Ctrl-C` to quit). |
 | `record.sh` | The beauty gate: records a short GIF of the preview via vhs. |
+| `ansi2png.py` | Headless colour gate: rasterizes the `frames` dump into a PNG you can open/Read when there's no TTY. Stdlib Python, no deps. |
 
 ## Inner loop (fast, no extra tools)
 
@@ -42,8 +43,14 @@ sizing and options.
 > Install vhs: <https://github.com/charmbracelet/vhs#installation> (it pulls in
 > `ttyd` and `ffmpeg`). If they're not on PATH, `record.sh` says so and stops.
 
-**No vhs and no live terminal (a sandbox, CI)?** The `frames` output still carries
-the full colour in its SGR bytes — to *see* it, parse those escapes and rasterize
-each cell to an image (a short awk/Python filter emitting PPM or PNG), then open
-that. It is the headless stand-in for the GIF gate; you still judge the colour by
-eye, never from the formula.
+**No vhs and no live terminal (a sandbox, CI, an agent)?** Rasterize the frames to a
+PNG and look at it:
+
+```sh
+go run ./cmd/preview frames 5 | ./scripts/ansi2png.py > /tmp/anim.png
+# → open or Read /tmp/anim.png ; frames are stacked into a filmstrip.
+```
+
+`ansi2png.py` (stdlib Python, no deps) turns the truecolor `frames` dump into an
+image — the headless stand-in for the GIF gate. You still judge the colour by eye,
+never from the formula. Cell size knobs: `ANSI2PNG_CW` / `ANSI2PNG_CH`.
