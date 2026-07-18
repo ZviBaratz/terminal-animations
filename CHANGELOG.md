@@ -11,6 +11,13 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+### Changed
+
+- `scripts/preview.sh`: point fresco-variant authors at the dedicated preview
+  program `new-variant` has them write (it selects the variant and sweeps
+  `LumRange`) instead of `cmd/fresco-demo`, which only cycles the shipped roster on
+  a timer — a final look, not a per-variant tuning knob.
+
 ## [0.1.0] - 2026-07-18
 
 Initial release: an expert terminal-animation authoring skill, its tuning harness, and a

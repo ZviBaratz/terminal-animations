@@ -7,8 +7,10 @@
 #   scripts/preview.sh [run-command...]     # default: go run ./cmd/preview
 #
 # For a standalone animation, cmd/preview is the scaffold in preview.go.tmpl.
-# For a fresco variant, point it at fresco's demo, e.g.:
-#   scripts/preview.sh go run ./cmd/fresco-demo
+# For a fresco variant, use the preview program fresco's `new-variant` skill has
+# you write — it selects your variant and sweeps LumRange, which is what tuning
+# needs. (`./cmd/fresco-demo` only cycles the whole shipped roster on a timer: a
+# final look at the merged result, not a per-variant tuning knob.)
 set -euo pipefail
 
 if [[ $# -eq 0 ]]; then
