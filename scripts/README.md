@@ -53,4 +53,12 @@ go run ./cmd/preview frames 5 | ./scripts/ansi2png.py > /tmp/anim.png
 
 `ansi2png.py` (stdlib Python, no deps) turns the truecolor `frames` dump into an
 image — the headless stand-in for the GIF gate. You still judge the colour by eye,
-never from the formula. Cell size knobs: `ANSI2PNG_CW` / `ANSI2PNG_CH`.
+never from the formula. Cell size: `--cw` / `--ch` flags (else the `ANSI2PNG_CW` /
+`ANSI2PNG_CH` env vars, else 7×14):
+
+```sh
+go run ./cmd/preview frames 5 | ./scripts/ansi2png.py --cw 8 --ch 16 > /tmp/anim.png
+```
+
+Prefer the flags — an env var set before the `|` (`ANSI2PNG_CW=8 go run … | ansi2png.py`)
+applies to the *producer*, not to `ansi2png`, so it is silently ignored.

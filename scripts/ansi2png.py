@@ -20,8 +20,12 @@ real terminal or the GIF gate.
 Truecolor (`38;2;r;g;b` / `48;2;…`), 256-colour (`38;5;n`), and the 16 basic
 colours are understood; other SGR codes are ignored. Stdlib only (zlib for PNG).
 
-Env knobs: ANSI2PNG_CW (cell px width, default 7), ANSI2PNG_CH (cell px height,
-default 14). Cells are drawn taller than wide to match a terminal.
+Cell size: --cw / --ch flags, else the ANSI2PNG_CW / ANSI2PNG_CH env vars, else 7x14
+(cells are drawn taller than wide to match a terminal). Prefer the flags — an env var
+set before the producer in a pipe (`ANSI2PNG_CW=8 go run ... | ansi2png.py`) applies to
+the producer, not to ansi2png, so it is silently ignored; a flag can't be misdirected:
+
+    go run ./cmd/preview frames 5 | ansi2png.py --cw 8 --ch 16 > /tmp/anim.png
 """
 import os
 import re
@@ -225,7 +229,44 @@ def png(width, height, rgb):
             + chunk(b"IDAT", zlib.compress(bytes(raw), 9)) + chunk(b"IEND", b""))
 
 
+def _parse_args(argv):
+    """Fold --cw/--ch (or --cw=N) into the CW/CH globals; precedence flag > env > default.
+    A tiny manual parser so the bare `... | ansi2png.py` path stays argument-free."""
+    global CW, CH
+    i = 0
+    while i < len(argv):
+        a = argv[i]
+        if a in ("-h", "--help"):
+            sys.stdout.write(__doc__)
+            sys.exit(0)
+        if a in ("--cw", "--ch"):
+            i += 1
+            if i >= len(argv):
+                sys.stderr.write("ansi2png: %s needs an integer\n" % a)
+                sys.exit(2)
+            key, raw = a, argv[i]
+        elif a.startswith("--cw=") or a.startswith("--ch="):
+            key, raw = a[:4], a[5:]
+        else:
+            sys.stderr.write("ansi2png: unknown argument %r\n" % a)
+            sys.exit(2)
+        try:
+            val = int(raw)
+        except ValueError:
+            sys.stderr.write("ansi2png: %s needs an integer, got %r\n" % (key, raw))
+            sys.exit(2)
+        if val < 1:
+            sys.stderr.write("ansi2png: %s must be >= 1\n" % key)
+            sys.exit(2)
+        if key == "--cw":
+            CW = val
+        else:
+            CH = val
+        i += 1
+
+
 def main():
+    _parse_args(sys.argv[1:])
     # Read raw bytes and decode UTF-8 ourselves — the block glyphs are multibyte,
     # so a C/POSIX-locale stdin (a sandbox, CI) must not gate on the ascii codec.
     if hasattr(sys.stdin, "buffer"):

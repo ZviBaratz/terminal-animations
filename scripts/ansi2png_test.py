@@ -44,10 +44,10 @@ def pixel(rows, x, y):
     return (r[x * 3], r[x * 3 + 1], r[x * 3 + 2])
 
 
-def run(stdin_bytes, env=None):
+def run(stdin_bytes, env=None, args=None):
     e = dict(os.environ)
     e.update(env or {})
-    p = subprocess.run([sys.executable, SCRIPT], input=stdin_bytes,
+    p = subprocess.run([sys.executable, SCRIPT] + (args or []), input=stdin_bytes,
                        stdout=subprocess.PIPE, env=e, check=True)
     return p.stdout
 
@@ -94,6 +94,13 @@ def main():
     _, _, rowsl = decode_png(run(lh.encode(), env))
     assert pixel(rowsl, 0, 0) == (0, 255, 0), pixel(rowsl, 0, 0)            # left col = fg green
     assert pixel(rowsl, cw // 2, 0) == (0, 0, 0), pixel(rowsl, cw // 2, 0)  # right col = bg black
+
+    # --cw/--ch flags set the cell size, and a flag overrides the env var — the
+    # pipe-safe path (env before the `|` reaches the producer, not ansi2png).
+    wf, hf, _ = decode_png(run(frame.encode(), None, ["--cw", "5", "--ch", "9"]))
+    assert (wf, hf) == (2 * 5, 9), (wf, hf)
+    wp, hp, _ = decode_png(run(frame.encode(), {"ANSI2PNG_CW": "99"}, ["--cw", "4", "--ch", "8"]))
+    assert (wp, hp) == (2 * 4, 8), (wp, hp)
 
     print("ansi2png_test: OK")
     return 0
