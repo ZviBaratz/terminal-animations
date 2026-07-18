@@ -1,11 +1,16 @@
-// cmd/preview — the standalone preview + frame-renderer for the nebula splash
-// animation. This is scripts/preview/ (main.go.tmpl + size_*.go) with render() wired
-// to nebula.Frame: a live full-terminal loop plus a headless frames dump.
+// main.go.tmpl — the standalone preview + frame-renderer scaffold.
 //
-//	go run ./cmd/preview                      # live, fills the terminal, follows resizes (Ctrl-C to quit)
-//	go run ./cmd/preview frames 5             # dump 5 frames at 80×24 (structure + colour check)
+// Copy this whole directory (scripts/preview/) to cmd/preview/ in your animation
+// module and rename main.go.tmpl → main.go, then wire render() to your animation.
+// The two size_*.go files are copied verbatim — they give the live loop the real
+// terminal size (a stdlib TIOCGWINSZ ioctl on unix, a fixed-size fallback elsewhere).
+//
+// It gives you both loops from craft.md:
+//
+//	go run ./cmd/preview                      # live: fills the terminal, follows resizes (Ctrl-C to quit)
+//	go run ./cmd/preview frames 5             # dump 5 frames at 80×24 (structure + headless colour check)
 //	go run ./cmd/preview frames 90 12         # dump 90 frames strided by 12 (ticks 0,12,…) — shows motion
-//	go run ./cmd/preview frames 90 12 200 56  # …at an explicit 200×56 pane
+//	go run ./cmd/preview frames 90 12 200 56  # …at an explicit 200×56 pane (a big field for the PNG gate)
 package main
 
 import (
@@ -15,15 +20,33 @@ import (
 	"strconv"
 	"syscall"
 	"time"
-
-	"github.com/ZviBaratz/terminal-animations/examples/nebula"
+	// TODO: import your animation package, e.g.
+	//   anim "github.com/you/yourrepo/plasma"
 )
 
 func main() {
-	// nebula is a pure, free-running field: frame N is a function of (w, h, N) alone.
+	// --- wire render() to your animation — pick ONE shape --------------------
+	//
+	// render takes the CURRENT pane size (w, h), so the live loop can fill the
+	// terminal and reflow on resize, and returns the frame plus whether a resolving
+	// animation is done.
+	//
+	// pure & free-running (a plasma, a starfield): frame N from (w, h, N) alone:
+	//
+	//	render := func(w, h, tick int) (string, bool) { return anim.Frame(w, h, tick), false }
+	//
+	// stateful or resolving (game of life, a typewriter, a wipe): construct once here
+	// (this is why render is a closure — it closes over `a`), advance with the absolute
+	// tick, and let View(w, h) render into the current pane (re-seeding/clamping if it
+	// differs from the constructed size):
+	//
+	//	a := anim.New( /* initial size, seed … */ )
+	//	render := func(w, h, tick int) (string, bool) { a.Update(tick); return a.View(w, h), a.Done() }
+	//
 	render := func(w, h, tick int) (frame string, done bool) {
-		return nebula.Frame(w, h, tick), false
+		panic("wire render() to your animation (see the comment above)")
 	}
+	// ------------------------------------------------------------------------
 
 	// frames mode: a deterministic dump for the headless gate (ansi2png). Kept at a
 	// fixed size by default so goldens/filmstrips are reproducible; a stride spreads

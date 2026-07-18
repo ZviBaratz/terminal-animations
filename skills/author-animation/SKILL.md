@@ -96,8 +96,10 @@ a pure `Frame` has no channel to signal completion.
 or clamping if it differs. A **resolving** animation anchors its timeline and `Done()` to
 the constructed size, not the `View` pane, so completion never shifts with view size.
 
-**Deliverables:** the `Frame`/`Animation` code, a `cmd/preview/main.go` (copy
-`${CLAUDE_PLUGIN_ROOT}/scripts/preview.go.tmpl` and wire `render()`), and a test (below).
+**Deliverables:** the `Frame`/`Animation` code, a `cmd/preview/` (copy the
+`${CLAUDE_PLUGIN_ROOT}/scripts/preview/` directory, rename `main.go.tmpl` → `main.go`, and
+wire `render()`; the verbatim build-tagged `size_*.go` give the live loop the real terminal
+size so it fills the pane), and a test (below).
 
 ## 3 · Compose — combine past the default
 

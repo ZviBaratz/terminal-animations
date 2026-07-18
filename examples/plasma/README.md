@@ -25,7 +25,8 @@ harness end to end.
   `(w, h, tick)`, byte-stability, and a golden frame.
 
 It follows the skill's §B convention exactly: a pure `func Frame(w, h, tick int) string`,
-a `cmd/preview/main.go` copied from `scripts/preview.go.tmpl`, and the test above.
+a `cmd/preview/` copied from `scripts/preview/` (the live loop fills the terminal; the
+`frames` dumper feeds the headless gate), and the test above.
 
 ## Run it
 
