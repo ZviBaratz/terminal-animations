@@ -2,6 +2,14 @@
 
 ![drifting through a nebula — half-block truecolor, seamless loop](../../docs/nebula.gif)
 
+> **Full fidelity:** the GIF above is 256-colour; the truecolor 24-bit capture is
+> [`docs/nebula.mp4`](../../docs/nebula.mp4) — what the live terminal actually shows.
+
+<video src="../../docs/nebula.mp4" width="720" autoplay loop muted playsinline>
+  Inline video isn't supported here —
+  <a href="../../docs/nebula.mp4">watch or download <code>docs/nebula.mp4</code></a>.
+</video>
+
 A standalone splash-screen animation: a pure, deterministic, **half-block truecolor**
 field that evokes **drifting slowly through a nebula** — calm, slow, and looping
 forever with no seam. It follows the skill's §B convention (a field-shaped standalone,
@@ -58,9 +66,10 @@ rasterize each with `ansi2png.py` → assemble with `ffmpeg` using **Bayer** dit
 (`period` ticks close back on frame 0), the GIF loops perfectly with no ping-pong.
 
 The GIF is capped at 256 colours, which bands a smooth truecolor nebula; the **live
-preview** (`go run ./cmd/preview`, full 24-bit) is the true fidelity, and a truecolor
-`ffmpeg` **MP4/webm** of the same frame set shows it losslessly if you want a shareable
-capture.
+preview** (`go run ./cmd/preview`, full 24-bit) is the true fidelity. The committed
+truecolor **[`docs/nebula.mp4`](../../docs/nebula.mp4)** (H.264, built from the same
+`220×56` frame set) preserves it near-losslessly — and thanks to inter-frame
+compression it is *smaller* than the GIF at more than twice the resolution.
 
 ## Tuning notes
 
