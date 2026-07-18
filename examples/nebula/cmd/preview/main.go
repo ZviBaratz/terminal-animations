@@ -28,10 +28,12 @@ func main() {
 				n = v
 			}
 		}
-		if len(os.Args) > 4 {
+		if len(os.Args) > 3 {
 			if v, err := strconv.Atoi(os.Args[3]); err == nil && v > 0 {
 				w = v
 			}
+		}
+		if len(os.Args) > 4 {
 			if v, err := strconv.Atoi(os.Args[4]); err == nil && v > 0 {
 				h = v
 			}

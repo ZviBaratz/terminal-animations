@@ -34,8 +34,8 @@
 package nebula
 
 import (
-	"fmt"
 	"math"
+	"strconv"
 	"strings"
 )
 
@@ -70,6 +70,13 @@ const (
 
 // starCol is the (cool white) colour a star contributes before occlusion/vignette.
 var starCol = rgb{0.74, 0.80, 0.96}
+
+// starReach is how many lattice cells out starLum must search. A star's glow spans
+// starRadius, so a star up to ceil(starRadius) cells away can still reach the sample;
+// deriving the reach from the radius (rather than a fixed 3×3) keeps the two in step
+// if starRadius is ever retuned, so a glow is never clipped as the drift crosses a
+// cell boundary.
+var starReach = int(math.Ceil(starRadius))
 
 // nebStops is the designed palette: density → colour, low to high. Deep blue-black
 // voids, indigo dust, violet, a magenta glow, and a pale magenta-white hot core.
@@ -173,13 +180,14 @@ func palette(t float64) rgb {
 }
 
 // starLum is the star layer's brightness at pixel-space (wx, wy): the soft, twinkling
-// contribution of the nearest seeded star in the surrounding 3×3 lattice cells (the
-// neighbourhood so a star straddling a cell edge still renders whole). Pure in θ.
+// contribution of the nearest seeded star in the surrounding starReach lattice cells
+// (the neighbourhood sized so a star's glow always renders whole, never clipped at a
+// cell edge). Pure in θ.
 func starLum(wx, wy, theta float64) float64 {
 	bx, by := math.Floor(wx), math.Floor(wy)
 	best := 0.0
-	for dj := -1; dj <= 1; dj++ {
-		for di := -1; di <= 1; di++ {
+	for dj := -starReach; dj <= starReach; dj++ {
+		for di := -starReach; di <= starReach; di++ {
 			cellX, cellY := bx+float64(di), by+float64(dj)
 			ix, iy := uint32(int32(cellX)), uint32(int32(cellY))
 			if hash2(ix, iy, starSeed) >= starDensity {
@@ -271,12 +279,14 @@ func Frame(w, h, tick int) string {
 	}
 
 	var b strings.Builder
-	b.Grow(w*h*22 + h*4)
+	// A full cell is at most 39 bytes (\x1b[38;2;255;255;255;48;2;255;255;255m▀);
+	// each row adds a 4-byte reset and a newline.
+	b.Grow(w*h*39 + h*5)
 	for r := 0; r < h; r++ {
 		for c := 0; c < w; c++ {
 			tr, tg, tb := v.at(c, 2*r)
 			br, bg, bb := v.at(c, 2*r+1)
-			fmt.Fprintf(&b, "\x1b[38;2;%d;%d;%d;48;2;%d;%d;%dm▀", tr, tg, tb, br, bg, bb)
+			appendCell(&b, tr, tg, tb, br, bg, bb)
 		}
 		b.WriteString("\x1b[0m")
 		if r < h-1 {
@@ -284,6 +294,31 @@ func Frame(w, h, tick int) string {
 		}
 	}
 	return b.String()
+}
+
+// appendCell writes one half-block cell — foreground = top pixel, background = bottom —
+// as an SGR truecolor sequence. Hand-rolled with strconv so the per-cell hot path
+// carries no fmt reflection or allocation (Frame calls this w×h times a frame).
+func appendCell(b *strings.Builder, tr, tg, tb, br, bg, bb uint8) {
+	b.WriteString("\x1b[38;2;")
+	writeChan(b, tr)
+	b.WriteByte(';')
+	writeChan(b, tg)
+	b.WriteByte(';')
+	writeChan(b, tb)
+	b.WriteString(";48;2;")
+	writeChan(b, br)
+	b.WriteByte(';')
+	writeChan(b, bg)
+	b.WriteByte(';')
+	writeChan(b, bb)
+	b.WriteString("m▀")
+}
+
+// writeChan appends one colour channel's decimal digits (0–255) to b.
+func writeChan(b *strings.Builder, v uint8) {
+	var s [3]byte
+	b.Write(strconv.AppendUint(s[:0], uint64(v), 10))
 }
 
 func lerp(a, b, t float64) float64 { return a + (b-a)*t }
