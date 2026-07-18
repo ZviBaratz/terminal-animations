@@ -53,6 +53,14 @@ self-contained deterministic artifact stays glyph-based; graphics protocols are 
 24-bit → nearest 256-cube → nearest 16. Default to 256 as the safe middle when unsure.
 Luminance for a ramp: `Y ≈ 0.2126R + 0.7152G + 0.0722B`.
 
+**Work perceptually for palettes & matching.** sRGB is not perceptually uniform, so
+"nearest colour" and "evenly-spaced gradient" done in RGB come out lumpy — uneven steps,
+muddy mid-tones. Design palettes and do nearest-palette quantization in a perceptual
+space: **OKLab / OKLCH** (Ottosson, 2020), where Euclidean distance tracks how different
+two colours *look*. Convert sRGB → OKLab, pick/space/match there, convert back for the SGR
+bytes. (The luminance `Y` above is fine for a brightness ramp; it is not a colour
+*distance*.)
+
 ## Dithering (smooth gradients on a limited ramp/palette)
 
 - **Floyd–Steinberg** (error diffusion): best-looking *stills*, least banding. **But
@@ -62,7 +70,13 @@ Luminance for a ramp: `Y ≈ 0.2126R + 0.7152G + 0.0722B`.
   dithers the same way → **stable under motion, no temporal flicker.** The right choice
   for moving terminal art and video (it's why ffmpeg animation pipelines use
   `paletteuse=dither=bayer`).
-- **Rule:** stills → Floyd–Steinberg; motion → ordered/Bayer.
+- **Blue noise** (and **spatiotemporal blue noise**): a threshold texture with no
+  low-frequency clumping — a still reads less mechanical than Bayer's visible grid, and a
+  *spatiotemporal* blue-noise texture (EA/NVIDIA) stays stable frame-to-frame: the current
+  state of the art for *animated* dithering. Use one if you have it; Bayer stays the cheap,
+  dependency-free motion-stable default.
+- **Rule:** stills → Floyd–Steinberg (or blue noise); motion → ordered/Bayer (or
+  spatiotemporal blue noise).
 
 ## The width-1 safety rule (always)
 

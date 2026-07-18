@@ -39,7 +39,26 @@ the deferred **future hybrid door** — not this plugin's self-contained artifac
 For **video→ANSI** use notcurses/timg with ffmpeg upstream; for GIF output use ffmpeg's
 `palettegen` + `paletteuse=dither=bayer` (Bayer, not error-diffusion — no temporal
 flicker; see `techniques.md`). Palette-limited (skip for truecolor work): catimg, jp2a,
-libcaca/img2txt.
+libcaca/img2txt (the foundational coloured-ASCII library — VLC/MPlayer render through it).
+
+## Beyond the Go core — other-language toolkits, authoring, recording
+
+The Go convention is for the *shipped* artifact; at design time, reach wider.
+
+- **Python engines & canvases** — **terminaltexteffects** (TTE): a zero-dep library of 70+
+  ready terminal *text* animations (easing, motion paths, scenes) to study or drive;
+  **Rich / Textual** (Textualize): the dominant Python TUI/animation stack, sibling to the
+  Charm stack; **drawille**: the canonical braille-canvas abstraction for line art / plots.
+- **Cell-grid stacks** — the Charm tools sit on a tcell-style cell buffer; **tcell** /
+  **termbox** (Go) are that layer directly, for raw cells without a framework.
+- **ANSI-art authoring & formats** — the scene *behind* 16colo.rs: **durdraw** (a modern
+  frame-based ASCII/ANSI/Unicode animation *studio* — per-frame timing, 256-colour,
+  CP437↔Unicode), the **PabloDraw / Moebius / TheDraw** editors, the **SAUCE** metadata
+  standard, and **ansilove** (renders `.ANS`/`.XB` → PNG). Author or convert here, then
+  bake to the deterministic artifact.
+- **Recording** — besides `vhs` (this plugin's `record.sh`), **asciinema** + **agg**
+  captures a live terminal session (asciicast) and renders it to GIF (gifski-based) — the
+  right record→GIF path when you're demoing a real running program, not a frame function.
 
 ## Baking — keep the artifact deterministic
 

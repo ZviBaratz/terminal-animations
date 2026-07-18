@@ -57,5 +57,8 @@ The step up:
 - **Design the palette** (`craft.md` two channels; `techniques.md` depth/dither) instead
   of picking "grey → white → cyan" by reflex.
 
-Showcase canon to study: **Bad Apple!!** (silhouette benchmark), **16colo.rs** (the ANSI
-art scene archive), `donut.c` derivatives, asciinema recordings.
+Showcase canon to study: **Bad Apple!!** (the silhouette benchmark), **16colo.rs** (the
+ANSI-art scene archive), `donut.c` derivatives, and the living-terminal-art touchstones —
+**Star Wars ASCIImation** (`telnet towel.blinkenlights.nl`), **cmatrix**, **asciiquarium**,
+**pipes.sh**, **cbonsai**, **No More Secrets**. Study how each earns its motion, then
+combine — don't copy.
