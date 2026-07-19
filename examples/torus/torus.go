@@ -73,12 +73,17 @@ const (
 	persp   = 6.0  // eye distance; smaller = stronger perspective, more depth drama
 	fitFrac = 0.86 // fraction of the short axis the torus spans — the breathing margin
 
-	ringsU      = 12  // meridian rings (around the tube) — structure vs. moiré
-	ringsV      = 22  // longitude rings (around the ring) — structure vs. moiré
-	wireDensity = 2.2 // wire samples per dot of arc — >1 keeps lines unbroken
-	surfDensity = 1.6 // occluder samples per dot of arc — >1 keeps the surface pinhole-free
-	minSteps    = 8   // floor on any sample count, so tiny panes still form a shape
-	maxSteps    = 900 // ceiling, so a huge pane cannot blow the frame budget
+	baseRingsU = 12 // meridian rings (around the tube) AT refSpan — structure vs. moiré
+	baseRingsV = 22 // longitude rings (around the ring) AT refSpan — structure vs. moiré
+	// Ring counts scale with the pane alongside the loop (see paneScale), so the mesh
+	// keeps the density it was tuned at instead of stretching into a sparse lattice.
+	// Capped because rings cost frame time: uncapped, a 400×110 pane lands at ~27 ms
+	// against a 33 ms budget, and a stutter is just a slower flicker.
+	maxRingScale = 3.0
+	wireDensity  = 2.2 // wire samples per dot of arc — >1 keeps lines unbroken
+	surfDensity  = 1.6 // occluder samples per dot of arc — >1 keeps the surface pinhole-free
+	minSteps     = 8   // floor on any sample count, so tiny panes still form a shape
+	maxSteps     = 900 // ceiling, so a huge pane cannot blow the frame budget
 
 	depthBias = 0.40 // world-space slack when testing a wire against the surface it
 	// lies on. A wire sits exactly ON the occluder, so its depth error
@@ -215,6 +220,26 @@ func chan8(x float64) uint8 {
 	return uint8(v)
 }
 
+// paneScale is how much bigger this pane is than the 100×28 reference, measured along
+// the SHORT axis in dots — the axis the torus is fitted to, so it is what actually
+// scales the object. Never below 1: the reference is already the unhurried, dense end,
+// and a small pane wants neither a faster loop nor a looser mesh.
+//
+// Two things ride this factor, and both are about keeping a large pane looking like the
+// reference rather than a stretched version of it: the loop length (see Period) and the
+// ring counts (see Frame). Fixing either in absolute terms is what made a big terminal
+// flicker — the loop because dot velocity scales, the rings because mesh density does.
+func paneScale(w, h int) float64 {
+	span := 2 * w
+	if 4*h < span {
+		span = 4 * h
+	}
+	if span <= refSpan {
+		return 1
+	}
+	return float64(span) / refSpan
+}
+
 // Period returns the loop length in ticks for a w×h pane: Frame(w,h,0) and
 // Frame(w,h,Period(w,h)) are byte-identical.
 //
@@ -239,14 +264,7 @@ func Period(w, h int) int {
 	if w <= 0 || h <= 0 {
 		return basePeriod
 	}
-	span := 2 * w
-	if 4*h < span {
-		span = 4 * h
-	}
-	if span <= refSpan {
-		return basePeriod
-	}
-	return int(math.Round(float64(basePeriod) * float64(span) / refSpan))
+	return int(math.Round(float64(basePeriod) * paneScale(w, h)))
 }
 
 // Frame renders the torus at absolute frame `tick` into a w×h pane: exactly h lines
@@ -377,11 +395,21 @@ func Frame(w, h, tick int) string {
 		shade[ci] = math.Pow(clamp01(lightMix*diff+(1-lightMix)*depth), shadeGamma)
 	}
 
+	// Ring counts ride paneScale so the mesh keeps the density it was tuned at. Held
+	// fixed, a big pane spreads the same 12/22 rings over twice the dots and the object
+	// stops reading as a machined mesh: each wire becomes an isolated moving dot-chain,
+	// and an isolated dot popping between frames reads as a blink rather than as motion.
+	// Measured mean lit neighbours per lit dot — the density the tuning depended on —
+	// is 4.02 at 100×28, but only 3.19 at 210×60 with fixed rings; scaling restores 4.06.
+	ringScale := math.Min(paneScale(w, h), maxRingScale)
+	ringsU := int(math.Round(baseRingsU * ringScale))
+	ringsV := int(math.Round(baseRingsV * ringScale))
+
 	// Meridian rings (constant u, sweeping v — around the tube).
 	nvw := clampInt(int(2*math.Pi*smallR*scale*wireDensity), minSteps, maxSteps)
 	wCosV, wSinV := ringTable(nvw)
 	for k := 0; k < ringsU; k++ {
-		u := 2 * math.Pi * float64(k) / ringsU
+		u := 2 * math.Pi * float64(k) / float64(ringsU)
 		cu, su := math.Cos(u), math.Sin(u)
 		for j := 0; j < nvw; j++ {
 			rr := bigR + smallR*wCosV[j]
@@ -392,7 +420,7 @@ func Frame(w, h, tick int) string {
 	nuw := clampInt(int(2*math.Pi*maxR*scale*wireDensity), minSteps, maxSteps)
 	wCosU, wSinU := ringTable(nuw)
 	for k := 0; k < ringsV; k++ {
-		v := 2 * math.Pi * float64(k) / ringsV
+		v := 2 * math.Pi * float64(k) / float64(ringsV)
 		cv, sv := math.Cos(v), math.Sin(v)
 		rr := bigR + smallR*cv
 		zz := smallR * sv

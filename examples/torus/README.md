@@ -138,10 +138,19 @@ running it in a real terminal. Both are worth knowing before you trust a PNG:
 Every constant at the top of `torus.go` was swept against the `ansi2png.py` filmstrip
 and picked **by eye**. What the sweeps actually rejected:
 
-- **`ringsU` / `ringsV` (12 / 22)** — the first and most important sweep. `16/28` was
-  the initial guess and collapses into an unreadable solid mesh below ~60 columns;
-  `10/18` reads as loose disconnected bands and the object stops feeling solid. 12/22 is
-  the pair that stays legible at 44×13 and still looks like a machined object at 100×28.
+- **`baseRingsU` / `baseRingsV` (12 / 22, at the 100×28 reference)** — the first and most
+  important sweep. `16/28` was the initial guess and collapses into an unreadable solid
+  mesh below ~60 columns; `10/18` reads as loose disconnected bands and the object stops
+  feeling solid. 12/22 is the pair that stays legible at 44×13 and still looks like a
+  machined object at 100×28.
+
+  These **scale with the pane** (`paneScale`, shared with `Period`). Held fixed, a large
+  terminal spreads the same 12/22 rings over twice as many dots and the mesh thins into a
+  sparse lattice — mean lit neighbours per lit dot falls from **4.02 at 100×28 to 3.19 at
+  210×60**, and an isolated dot popping between frames reads as a blink rather than as
+  motion. Scaling restores 4.06 and drops churn 54.5% → 47.8%. The factor is capped at
+  `maxRingScale` because rings cost frame time: uncapped, 400×110 lands at ~27 ms against
+  a 33 ms budget, and a stutter is just a slower flicker.
 - **`shadeGamma` (2.2)** — added only after *measuring* the shade histogram. The raw
   distribution piled up at 0.6–0.9 (most of a front-facing surface is both near-ish and
   lit-ish), which spent the entire palette inside its magenta band: the torus rendered
