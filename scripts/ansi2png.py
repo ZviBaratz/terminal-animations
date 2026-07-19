@@ -12,10 +12,14 @@ the formula.
 Reads the `frames` dump on stdin (the `--- frame N ---` headers are recognised and
 each frame is stacked vertically with a gap). A painted-background space shows as its
 bg colour and a glyph as its fg colour; the half-block, quadrant and full-block glyphs
-(▀▄▌▐ █ ▖▗▘▙▚▛▜▝▞▟) are split into their sub-cell fg/bg regions, so real half-block
-raster reads correctly. Sextant/octant/braille carry finer sub-cell detail than this
-coarse rasterizer resolves — they collapse to their foreground; judge those tiers on a
-real terminal or the GIF gate.
+(▀▄▌▐ █ ▖▗▘▙▚▛▜▝▞▟) are split into their 2x2 sub-cell fg/bg regions and braille
+(U+2800–28FF) into its 2x4 dot grid — a lit dot takes the foreground, an unlit dot the
+background — so real half-block raster and braille line art both read correctly. Dots
+fill their sub-rectangle rather than being drawn inset, so a cell's eight dots tile it
+with no gaps; that is the right approximation at these sizes (use --ch >= 4 so all four
+dot rows get a pixel). Sextant (U+1FB00–1FB3B) and octant (U+1CD00–1CDE5) carry finer
+detail than this coarse rasterizer resolves — they still collapse to their foreground;
+judge those two tiers on a real terminal or the GIF gate.
 
 Truecolor (`38;2;r;g;b` / `48;2;…`), 256-colour (`38;5;n`), and the 16 basic
 colours are understood; other SGR codes are ignored. Stdlib only (zlib for PNG).
@@ -52,6 +56,8 @@ BASIC = [
 
 # Half/quadrant/full block glyphs -> which of the four sub-quadrants are foreground.
 # Bits: UL=1, UR=2, LL=4, LR=8; the rest of the cell takes the background colour.
+# That is bit (row*2 + col), row-major with the LSB at top-left — the same convention
+# BRAILLE uses at 2x4, so both share one sub-cell draw path.
 QUAD = {
     "▀": 3, "▄": 12, "▌": 5, "▐": 10, "█": 15,  # ▀▄▌▐ █
     "▖": 4, "▗": 8, "▘": 1, "▙": 13, "▚": 9,    # ▖▗▘▙▚
@@ -60,9 +66,66 @@ QUAD = {
 # Shade glyphs -> fraction of foreground blended over background.
 SHADE = {"░": 0.25, "▒": 0.5, "▓": 0.75}  # ░▒▓
 
+# Braille (U+2800..U+28FF): a 2x4 dot grid. The dot numbering is column-major for the
+# historic 6-dot cell (1,2,3 down the left column; 4,5,6 down the right) and only then
+# tacks 7/8 on as a bottom row — so the codepoint's bit order is NOT raster order and
+# a naive 1 << (row*2 + col) is wrong. This table renumbers it:
+#
+#     dot1 dot4   bit 0x01 0x08   (row, col) (0,0) (0,1)
+#     dot2 dot5       0x02 0x10              (1,0) (1,1)
+#     dot3 dot6       0x04 0x20              (2,0) (2,1)
+#     dot7 dot8       0x40 0x80              (3,0) (3,1)   <- appended later
+BRAILLE_RC = ((0, 0), (1, 0), (2, 0), (0, 1), (1, 1), (2, 1), (3, 0), (3, 1))
+
+
+def _braille_masks():
+    """U+2800..U+28FF -> a row-major 2x4 mask in QUAD's convention (bit row*2+col)."""
+    out = {}
+    for bits in range(256):
+        m = 0
+        for d in range(8):
+            if bits >> d & 1:
+                r, c = BRAILLE_RC[d]
+                m |= 1 << (r * 2 + c)
+        out[chr(0x2800 + bits)] = m
+    return out
+
+
+BRAILLE = _braille_masks()
+
 
 def _mix(bg, fg, a):
     return tuple(int(round(bg[k] + (fg[k] - bg[k]) * a)) for k in range(3))
+
+
+_IMAP = {}
+
+
+def _imap(total, n):
+    """px offset -> sub-cell region index, for `n` regions across `total` px.
+
+    Region k spans [k*total//n, (k+1)*total//n), so the regions tile the cell exactly —
+    no gap, no overlap, no off-by-one at any cell size, and an odd size spreads the odd
+    pixel rather than dumping it on one end (7px/2 -> 3+4, 14px/4 -> 3+4+3+4). This
+    reproduces the old hard-coded 2x2 split (`sx < CW // 2`) byte for byte, so the
+    half-block/quadrant output is unchanged. At --ch < 4 some dot rows get zero pixels
+    and are invisible; the default 14 and record-headless.sh's 16 are ample."""
+    m = _IMAP.get((total, n))
+    if m is None:
+        m = _IMAP[(total, n)] = [((p + 1) * n - 1) // total for p in range(total)]
+    return m
+
+
+def _mask_cell(fgc, bgc, bits, cols, rows):
+    """A rows x cols sub-cell mask spec, flattened to ("solid", …) when the mask is
+    empty (U+2800, the braille blank) or full (█, U+28FF) — same pixels, but it takes
+    the whole-cell memcpy path. That matters for braille line art: a wireframe is
+    mostly blank cells."""
+    if bits == 0:
+        return ("solid", bgc)
+    if bits == (1 << (cols * rows)) - 1:
+        return ("solid", fgc)
+    return ("mask", fgc, bgc, bits, cols, rows)
 
 
 SGR = re.compile(r"\x1b\[([0-9;]*)m")
@@ -122,9 +185,10 @@ def apply_sgr(params, fg, bg):
 def row_cells(line):
     """A visible line -> list of cell specs, one per terminal cell.
 
-    A spec is ("solid", rgb) or ("quad", fg, bg, mask) — the latter for the
-    half/quadrant/full-block glyphs, whose sub-cell regions are painted from the
-    (fg, bg) pair the way the terminal draws them."""
+    A spec is ("solid", rgb) or ("mask", fg, bg, bits, cols, rows) — the latter for the
+    glyphs that subdivide the cell (half/quadrant/full block at 2x2, braille at 2x4),
+    whose sub-cell regions are painted from the (fg, bg) pair the way the terminal
+    draws them."""
     cells, fg, bg, i = [], None, None, 0
     while i < len(line):
         ch = line[i]
@@ -145,7 +209,9 @@ def row_cells(line):
         if ch == " ":
             cells.append(("solid", bgc))
         elif ch in QUAD:
-            cells.append(("quad", fgc, bgc, QUAD[ch]))
+            cells.append(_mask_cell(fgc, bgc, QUAD[ch], 2, 2))
+        elif ch in BRAILLE:
+            cells.append(_mask_cell(fgc, bgc, BRAILLE[ch], 2, 4))
         elif ch in SHADE:
             cells.append(("solid", _mix(bgc, fgc, SHADE[ch])))
         elif ch.isprintable() and ch != "\t":
@@ -184,13 +250,6 @@ def render(rows):
         for k in range(n):
             buf[base + k * width * 3: base + (k + 1) * width * 3] = one
 
-    def cell_rgb(spec, sx, sy):
-        if spec[0] == "solid":
-            return spec[1]
-        _, fgc, bgc, mask = spec
-        bit = (1 if sy < CH // 2 else 4) << (0 if sx < CW // 2 else 1)
-        return fgc if mask & bit else bgc
-
     def fill_cells(y0, cells):
         for sy in range(CH):
             row = bytearray(width * 3)
@@ -199,9 +258,15 @@ def render(rows):
                 if spec[0] == "solid":
                     row[cx * CW * 3:(cx + 1) * CW * 3] = bytes(spec[1]) * CW
                 else:
+                    # A rows x cols sub-cell mask: the dot row is fixed for this scan
+                    # line, so resolve it once and only walk the columns per pixel.
+                    _, fgc, bgc, bits, cols, nrows = spec
+                    base = _imap(CH, nrows)[sy] * cols
+                    colof = _imap(CW, cols)
+                    fgb, bgb = bytes(fgc), bytes(bgc)
                     for sx in range(CW):
                         off = (cx * CW + sx) * 3
-                        row[off:off + 3] = bytes(cell_rgb(spec, sx, sy))
+                        row[off:off + 3] = fgb if bits >> (base + colof[sx]) & 1 else bgb
             base = (y0 + sy) * width * 3
             buf[base:base + width * 3] = row
 

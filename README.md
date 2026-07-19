@@ -72,14 +72,20 @@ on any `(w, h, tick)`, determinism where pure, and a golden frame.
 ## What's inside
 
 - `skills/author-animation/` — the authoring skill and its four references.
-- `scripts/` — the tuning harness: a live preview runner (`preview.sh`), a vhs GIF
-  recorder (`record.sh`), a frame dumper, and `ansi2png.py` — a headless colour gate
-  that rasterizes frames to a PNG when there's no terminal (a sandbox, CI, an agent).
-  The GIF path needs `vhs`, `ttyd`, and `ffmpeg`.
+- `scripts/` — the tuning harness: a live preview runner (`preview.sh`), a frame dumper,
+  `ansi2png.py` — a headless colour gate that rasterizes frames to a PNG when there's no
+  terminal (a sandbox, CI, an agent) — and two recorders: `record-headless.sh` (GIF +
+  MP4 with only `ffmpeg` + `python3`) and `record.sh` (the vhs path, which additionally
+  needs `vhs` and `ttyd`).
 - `agents/tuner.md` — an optional subagent that drives the render → look → tune loop.
-- `examples/plasma/` — a **reference animation**: a pure, deterministic half-block
-  truecolor plasma built to the standalone convention, with its preview, golden test,
-  and the `docs/plasma.gif` above — a worked example the skill can point at.
+- `examples/` — three **reference animations**, each built to the standalone convention
+  with its own preview, golden test and demo GIF, and each demonstrating a different
+  rung of the resolution ladder:
+  - [`plasma/`](examples/plasma) — a half-block truecolor plasma (free-running).
+  - [`nebula/`](examples/nebula) — a half-block drifting nebula field (seamless loop).
+  - [`torus/`](examples/torus) — a **braille** 3D wireframe torus with hidden-line
+    removal (seamless loop) — the top rung, where the dot mask carries geometry and
+    colour carries depth.
 
 ## Install
 

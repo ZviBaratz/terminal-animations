@@ -13,6 +13,23 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Added
 
+- **`examples/torus`** — a third reference animation, and the first to demonstrate the
+  **top rung of the resolution ladder**: a pure, deterministic **braille** 3D wireframe
+  torus that tumbles about two axes, removes its own hidden lines with a per-dot depth
+  buffer plus an analytic back-face cull, and closes on itself with no seam. Braille
+  cells are monochrome, so it is the clean worked example of splitting the two
+  brightness channels — the **dot mask carries geometry, colour carries depth** — with
+  an iridescent cyan→magenta depth ramp, a Lambert `N·L` term on the analytic torus
+  normal, and a dim backdrop wash painted as the cell *background* (the only way to
+  layer a colour field under a monochrome glyph in the same cell).
+
+  It also documents a trap worth knowing: **a torus tumbled on integer harmonics about
+  two coordinate axes secretly repeats at `period/2`**, because the accumulated rotation
+  there is a product of π-rotations about coordinate axes and every one of those is a
+  symmetry of the torus. A fixed oblique pre-tilt breaks the degeneracy, and
+  `TestPeriodIsMinimal` pins it — comparing the SGR-stripped dot grid (the wash varies
+  with θ and would mask the bug) and requiring a large *fraction* of cells to differ
+  (`sin(π)` is `1.22e-16`, so the degenerate case still differs in ~4% of dots).
 - **`scripts/record-headless.sh`** — a vhs-free beauty gate. It runs a `frames` dump,
   splits it on the `--- frame N ---` headers, rasterizes each frame through `ansi2png.py`,
   and encodes a 256-colour seamless-loop GIF (motion-stable Bayer dither) plus a truecolor
@@ -21,6 +38,22 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Changed
 
+- **`ansi2png.py` now renders braille (U+2800–28FF) as its 2×4 dot grid** instead of
+  collapsing the cell to a solid foreground block. Lit dots take the foreground colour,
+  unlit dots the background, and `U+2800` (the braille blank) is real negative space —
+  it is `isprintable()`, so it previously fell through to a solid *foreground* cell. So
+  braille line art (wireframes, plots, edges, high-detail silhouettes) now reads as line
+  art in the headless PNG gate and in the `record-headless.sh` GIF/MP4, not as a field of
+  solid rectangles. Dots fill their sub-rectangle rather than being drawn inset, which
+  keeps them legible after the GIF's downscale and dither. Internally the quadrant path
+  is generalized to a `rows × cols` sub-cell mask that braille reuses; region edges sit
+  at `k·size//n`, so the regions tile any cell size exactly — the half-block, quadrant
+  and full-block output is **byte-identical**, verified against the previous version at
+  eight cell sizes including odd ones, so `docs/plasma.gif`, `docs/nebula.gif` and
+  `docs/nebula.mp4` are unchanged and need no regeneration. **Sextant (U+1FB00–1FB3B)
+  and octant (U+1CD00–1CDE5) still collapse to their foreground** — judge those two
+  tiers on a real terminal or the GIF gate. The stale caveats in `ansi2png.py`'s
+  docstring, `scripts/README.md` and `references/tools.md` are corrected accordingly.
 - **`cmd/preview` scaffold is now a directory** — `scripts/preview.go.tmpl` becomes
   `scripts/preview/` (`main.go.tmpl` + build-tagged `size_unix.go` / `size_other.go`),
   copied as a unit. The live loop now **fills the whole terminal and reflows on resize**

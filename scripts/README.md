@@ -60,8 +60,11 @@ go run ./cmd/preview frames 5 | ./scripts/ansi2png.py > /tmp/anim.png
 
 `ansi2png.py` (stdlib Python, no deps) turns the truecolor `frames` dump into an
 image — the headless stand-in for the GIF gate. You still judge the colour by eye,
-never from the formula. Cell size: `--cw` / `--ch` flags (else the `ANSI2PNG_CW` /
-`ANSI2PNG_CH` env vars, else 7×14):
+never from the formula. It resolves half-block, quadrant and full-block cells into their
+2×2 sub-cell regions and braille into its 2×4 dot grid; sextant and octant still collapse
+to their foreground. Cell size: `--cw` / `--ch` flags (else the `ANSI2PNG_CW` /
+`ANSI2PNG_CH` env vars, else 7×14 — use `--ch 4` or more so all four braille dot rows
+get a pixel):
 
 ```sh
 go run ./cmd/preview frames 5 | ./scripts/ansi2png.py --cw 8 --ch 16 > /tmp/anim.png
