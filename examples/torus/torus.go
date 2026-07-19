@@ -300,9 +300,11 @@ func Frame(w, h, tick int) string {
 		// normal is exact. Then the depth buffer, which is the only one of the two that
 		// can catch one part of the ring passing in front of another.
 		//
-		// They overlap heavily — measured at 100×28, disabling either one alone moves
-		// the lit-cell count by about 1%, because whichever survives picks up the slack;
-		// disabling both raises it 8-18%. Both are kept because each is exact on a case
+		// They overlap heavily — summed over the whole 720-tick loop at 100×28,
+		// disabling either one alone raises the lit-cell count only ~4% (the survivor
+		// picks up the slack), while disabling both raises it ~19%. Per frame the
+		// spread is far wider (dropping the depth test alone ranges 0% to +32%), which
+		// is why the aggregate is quoted. Both are kept because each is exact on a case
 		// the other only approximates, and together they let depthBias stay small enough
 		// that the far side does not fringe through at the silhouette. (What actually
 		// cured the early z-fighting dashes was raising depthBias, not this cull.)
@@ -406,8 +408,8 @@ func ringTable(n int) ([]float64, []float64) {
 
 // appendDots writes one braille cell — foreground = the lit dots, background = the
 // backdrop wash — as an SGR truecolor sequence. Hand-rolled with strconv so the
-// per-cell hot path carries no fmt reflection or allocation (Frame calls this w×h
-// times a frame).
+// per-cell hot path carries no fmt reflection or allocation (Frame calls this once per
+// lit cell, and appendEmpty for the rest — together, w×h calls a frame).
 func appendDots(b *strings.Builder, fr, fg, fb, br, bg, bb uint8, dots uint8) {
 	b.WriteString("\x1b[38;2;")
 	writeChan(b, fr)
@@ -427,9 +429,10 @@ func appendDots(b *strings.Builder, fr, fg, fb, br, bg, bb uint8, dots uint8) {
 
 // appendEmpty writes a cell with no lit dots: a plain space over the wash. It sets no
 // foreground — nothing is drawn — which keeps a sparse wireframe's frames roughly half
-// the size they would otherwise be. It also must NOT use U+2800 (blank braille): that
-// is a printable glyph, and the headless ansi2png.py gate would paint the whole cell
-// foreground instead of leaving it as negative space.
+// the size they would otherwise be. A space is also preferred over U+2800 (blank
+// braille) on size alone: one byte instead of three, on the majority of cells.
+// (ansi2png.py resolves U+2800 to solid background as of this change, so either glyph
+// now rasterizes correctly — the choice here is bytes, not correctness.)
 func appendEmpty(b *strings.Builder, br, bg, bb uint8) {
 	b.WriteString("\x1b[48;2;")
 	writeChan(b, br)

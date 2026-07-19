@@ -203,10 +203,11 @@ func TestFitsPane(t *testing.T) {
 }
 
 // No TestHiddenLineRemoval here, deliberately. It is tempting to assert that occlusion
-// lights fewer cells than no occlusion, but measured at 100×28 the whole hidden-line
-// pipeline only removes 8-18% of lit cells (the far side of a sparse wireframe largely
-// projects onto the same cells as the near side), and the back-face cull and the depth
-// test are so redundant that disabling either alone moves the count by ~1%. Any
+// lights fewer cells than no occlusion, but summed over the whole loop at 100×28 the
+// hidden-line pipeline only removes ~19% of lit cells (the far side of a sparse
+// wireframe largely projects onto the same cells as the near side), and the back-face
+// cull and the depth test are so redundant that disabling either alone moves the
+// count only ~4% — and on some individual frames not at all (0%). Any
 // threshold tight enough to catch a regression would be fragile, and one loose enough
 // to be stable would catch nothing — a test that passes with the whole occluder ripped
 // out is worse than no test, because it reads as coverage. Occlusion is a *visual*
