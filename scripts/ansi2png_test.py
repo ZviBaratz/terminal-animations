@@ -69,7 +69,10 @@ def main():
     w, h, rows = decode_png(run(frame.encode(), env))
     assert (w, h) == (2 * cw, ch), (w, h)
     assert pixel(rows, 0, 0) == (255, 0, 0), pixel(rows, 0, 0)          # cell 0 = red bg
-    assert pixel(rows, cw, 0) == (0, 255, 0), pixel(rows, cw, 0)        # cell 1 = green fg
+    # cell 1 = green fg, blended at '#'s ink coverage rather than a flat fg block
+    # (see the ramp case below): the green channel is well lit but short of full.
+    g = pixel(rows, cw, 0)
+    assert g[0] == 0 and g[2] == 0 and 100 < g[1] < 255, g
 
     # 256-colour and basic-colour paths resolve to real RGB (not default).
     frame2 = "--- frame 0 ---\n\x1b[48;5;196m \x1b[0m\n"                # xterm 196 ~ bright red
@@ -167,6 +170,30 @@ def main():
     _, _, rowsod = decode_png(run(odd.encode(), None, ["--cw", "7", "--ch", "14"]))
     assert ([pixel(rowsod, x, 0) for x in range(7)]
             == [(0, 255, 0)] * 3 + [(0, 0, 0)] * 4), [pixel(rowsod, x, 0) for x in range(7)]
+
+    # A typographic ramp rasterizes as ink *coverage*, not flat fg blocks. '·' and '@'
+    # carry the same fg colour, so a flat-block rasterizer draws them identically —
+    # which is exactly the blindness that made this gate useless for judging a
+    # glyph-density ramp (fresco's lumRange splits brightness into that ramp).
+    ramp = "--- frame 0 ---\n\x1b[48;2;0;0;0m\x1b[38;2;255;255;255m·@\x1b[0m\n"
+    _, _, rr = decode_png(run(ramp.encode(), env))
+    light, heavy = pixel(rr, 0, 0), pixel(rr, cw, 0)
+    assert light != heavy, (light, heavy)                  # the whole point
+    assert sum(light) < sum(heavy), (light, heavy)         # lighter glyph = less ink
+    assert sum(light) < sum(heavy) // 3, (light, heavy)    # '·' near bg, '@' near fg
+
+    # Ink coverage is monotonic along a ramp, so a gradient reads as a gradient.
+    mono = "--- frame 0 ---\n\x1b[48;2;0;0;0m\x1b[38;2;255;255;255m .:+*oO0@\x1b[0m\n"
+    _, _, rm = decode_png(run(mono.encode(), env))
+    inks = [sum(pixel(rm, i * cw, 0)) for i in range(9)]
+    assert inks == sorted(inks), inks
+    assert inks[0] == 0, inks                              # leading space stays bg
+
+    # A printable glyph with no ink entry falls back to solid fg, so text and box
+    # drawing stay visible rather than vanishing into an invented coverage.
+    unk = "--- frame 0 ---\n\x1b[48;2;0;0;0m\x1b[38;2;0;255;0m§\x1b[0m\n"
+    _, _, ru = decode_png(run(unk.encode(), env))
+    assert pixel(ru, 0, 0) == (0, 255, 0), pixel(ru, 0, 0)
 
     # --cw/--ch flags set the cell size, and a flag overrides the env var — the
     # pipe-safe path (env before the `|` reaches the producer, not ansi2png).
