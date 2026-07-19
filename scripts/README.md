@@ -74,7 +74,7 @@ plus a truecolor **MP4**:
 
 ```sh
 # 120 frames × stride 9 = 1080 ticks = exactly one nebula loop → a seamless GIF + MP4:
-scripts/record-headless.sh -o out/nebula -- go run ./cmd/preview frames 120 9 200 56
+scripts/record-headless.sh -o out/nebula -- go run ./cmd/preview frames 120 9 220 56
 # → out/nebula.gif  (loops forever)   and   out/nebula.mp4  (smaller, sharper)
 ```
 

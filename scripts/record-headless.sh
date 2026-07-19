@@ -26,7 +26,7 @@
 # Example (a nebula loop of period 1080, sped up to a 6 s GIF at 20 fps):
 #   # 120 frames × stride 9 = 1080 ticks = exactly one loop → a seamless GIF.
 #   scripts/record-headless.sh -o out/nebula -- \
-#     go run ./cmd/preview frames 120 9 200 56
+#     go run ./cmd/preview frames 120 9 220 56
 #
 # Seam note: for a seamless loop make (frame count × stride) equal exactly one loop
 # `period`, so the dump spans 0 … period−stride and wrapping back to frame 0 is just
