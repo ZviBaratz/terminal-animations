@@ -34,6 +34,16 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - `examples/plasma` adopts the allocation-free `strconv` per-cell render path (the
   `appendCell`/`writeChan` helpers, matching `examples/nebula`) — byte-identical output,
   so the golden is unchanged; the scaffold now models the fast path in both examples.
+- **Loop-seam is now a first-class convention.** `skills/author-animation` (SKILL.md +
+  `craft.md`) distinguishes a **free-running** field (linear time, never exactly repeats)
+  from a **seamless loop** (`θ = 2π·(tick mod period)/period`, byte-identical at the seam),
+  and the standalone test checklist adds `TestLoopSeam` for true loops. `examples/plasma`
+  is relabelled free-running (its demo GIF is ping-ponged); no code or golden change.
+- **Reference corrections.** `craft.md` no longer over-claims goldens are byte-portable
+  across machines — they are same-machine, and the portable guarantees are shape / no-panic
+  / seam. `techniques.md` now sets half-block resolution expectations: a field is `w × 2h`
+  pixels, one pixel per column, so **filling the terminal** is the sharpness lever (and
+  quadrant/sextant sharpen edges, not smooth gradients).
 - `scripts/preview.sh`: point fresco-variant authors at the dedicated preview
   program `new-variant` has them write (it selects the variant and sweeps
   `LumRange`) instead of `cmd/fresco-demo`, which only cycles the shipped roster on

@@ -68,6 +68,10 @@ func TestDeterministic(t *testing.T) {
 	}
 }
 
+// No TestLoopSeam here: plasma is free-running — linear time, and its sine rates share no
+// short common period — so no tick reproduces an earlier frame and there is no seam to pin.
+// A seamless θ-loop does; see examples/nebula's TestLoopSeam. (SKILL.md §B.)
+
 // TestGolden: pin the exact bytes of one frame. Run with -update to regenerate.
 func TestGolden(t *testing.T) {
 	const w, h, tick = 16, 4, 5

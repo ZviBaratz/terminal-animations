@@ -49,8 +49,9 @@ say so. Then **state the concept back in one line** and build to it.
 Ask, in order:
 
 1. **Is it field-shaped?** — full-pane, a pure function of `(position, frame)`,
-   gradient-coloured, loops forever, *no subject or sprite* (plasma, rain, aurora, a
-   starfield without streaks). **Inside the fresco repo** → a **fresco variant** (§A);
+   gradient-coloured, runs forever (free-running or a seamless loop — see §B), *no subject
+   or sprite* (plasma, rain, aurora, a starfield without streaks). **Inside the fresco
+   repo** → a **fresco variant** (§A);
    **outside it** → the same idea as a **standalone pure field** (§B).
 2. **Otherwise** — stateful (a grid / particles), a subject/sprite, *resolves* (a
    one-shot that ends), or non-field motion → **standalone** (§B).
@@ -73,7 +74,7 @@ A small, framework-free convention — so the animation stays snapshot-testable 
 portable, and seeds a possible future library:
 
 ```go
-// pure & free-running (a plasma, a starfield): frame N from N alone
+// pure, runs forever (a plasma, a starfield, a nebula): frame N from N alone
 func Frame(w, h, tick int) string
 
 // stateful or resolving (game of life, a typewriter, a wipe):
@@ -84,7 +85,7 @@ type Animation interface {
 }
 ```
 
-**Which shape.** A pure `Frame` requires *all* of: closed-form of `tick`, loops forever,
+**Which shape.** A pure `Frame` requires *all* of: closed-form of `tick`, runs forever,
 carries no state. If it **resolves** (needs `Done()`) or **carries state**, it is an
 `Animation` — even a one-shot wipe whose fill is closed-form (`filled == tick`), because
 a pure `Frame` has no channel to signal completion.
@@ -95,6 +96,18 @@ a pure `Frame` has no channel to signal completion.
 `Update(tick)` (no size), and let `View(w, h)` render into the requested pane, re-seeding
 or clamping if it differs. A **resolving** animation anchors its timeline and `Done()` to
 the constructed size, not the `View` pane, so completion never shifts with view size.
+
+**Free-running vs a seamless loop.** A pure field runs forever, but "forever" has two
+honest shapes. A **free-running** field drives time linearly (`t := tick*speed`): it never
+resolves, and nothing pins a period, so no tick is guaranteed to reproduce an earlier frame
+(`examples/plasma`: its mixed sine rates share no short common period, and float rounding
+means you can't count on landing back on one). A **seamless loop** instead drives every
+time-varying term through one phase `θ = 2π·(tick mod period)/period`, so `Frame(w,h,0)`
+and `Frame(w,h,period)` get identical inputs and are byte-identical — a provable
+forever-loop (`examples/nebula`). Pick deliberately: free-running is fine for a background
+that only needs to keep moving (and can be ping-ponged for a seamless *recording*); a true
+loop is what a splash or idle screen that must close on itself wants, and it earns a
+`TestLoopSeam` (below).
 
 **Deliverables:** the `Frame`/`Animation` code, a `cmd/preview/` (copy the
 `${CLAUDE_PLUGIN_ROOT}/scripts/preview/` directory, rename `main.go.tmpl` → `main.go`, and
@@ -130,9 +143,11 @@ Every animation, field or standalone (full rubric: `craft.md`):
 
 Test: exact `h`×`w` across a spread of sizes, no panic on any `(w, h, tick)` including
 tiny and zero-area panes; a pure `Frame` is byte-stable (`Frame(w,h,t) == Frame(w,h,t)`);
-stateful things get canonical goldens (a Life blinker is period-2, a glider returns
-shifted by (1,1) after 4 steps; a typewriter's `Done()` flips exactly when the last rune
-shows, never splitting a multibyte rune).
+a **seamless loop** also asserts its seam with a `TestLoopSeam` — `Frame(w,h,0) ==
+Frame(w,h,period)`, and again at an offset (`examples/nebula`), the one loop guarantee a
+same-machine golden can't give you; stateful things get canonical goldens (a Life blinker
+is period-2, a glider returns shifted by (1,1) after 4 steps; a typewriter's `Done()` flips
+exactly when the last rune shows, never splitting a multibyte rune).
 
 ## Tune — the beauty gate
 
@@ -154,3 +169,6 @@ Sweep each taste constant and pick by eye. The optional **`tuner`** subagent dri
 - **Re-deriving fresco's variant checklist** in the fresco repo — hand off (§A).
 - "Bounds pass, tests green" → you haven't seen the colour move. Run the beauty gate.
 - Motion from a wall clock, or `math/rand`, in a pure animation → breaks determinism.
+- **Claiming a seamless "loops forever"** when the field is free-running (linear `t`, never
+  byte-repeats) — either drive it through `θ` and prove it with `TestLoopSeam`, or call it
+  free-running and ping-pong it for the recording.

@@ -23,6 +23,10 @@ harness end to end.
 - **Determinism.** `Frame(w, h, tick)` is pure — no wall clock, no `math/rand` — so it
   is snapshot-testable. `plasma_test.go` pins the `h×w` contract, no-panic on any
   `(w, h, tick)`, byte-stability, and a golden frame.
+- **Free-running, not a seamless loop.** Time is linear (`t := tick*speed`), so plasma
+  drifts forever but never *exactly* repeats — the deliberate contrast with
+  [`examples/nebula`](../nebula), a true θ-phase seamless loop. That's why plasma has no
+  `TestLoopSeam` (there is no seam to pin) and its demo GIF is ping-ponged (below).
 
 It follows the skill's §B convention exactly: a pure `func Frame(w, h, tick int) string`,
 a `cmd/preview/` copied from `scripts/preview/` (the live loop fills the terminal; the
@@ -45,7 +49,10 @@ go run ./cmd/preview frames 5 | ../../scripts/ansi2png.py > /tmp/plasma.png
 `docs/plasma.gif` was produced with the plugin's **own** headless pipeline — no `vhs`
 required: dump frames → rasterize each with `ansi2png.py` → assemble with `ffmpeg`
 using **Bayer** dithering (ordered, so it's stable under motion — no temporal shimmer,
-unlike error diffusion; see `references/techniques.md`), looped ping-pong so it's seamless.
+unlike error diffusion; see `references/techniques.md`). Because plasma is free-running —
+it never closes back on an earlier frame — the GIF is **ping-ponged** (played forward then
+reversed) to hide the seam. A true θ-loop like [`examples/nebula`](../nebula) needs no
+ping-pong: its `scripts/record-headless.sh` forward-loop is seamless on its own.
 
 ## Tuning notes
 

@@ -21,9 +21,12 @@ in `techniques.md`. fresco's `new-variant` skill states the fresco-specific
 
 For a **pure** animation (a function of the frame), keep it pure: animation enters
 *only* through the frame/tick counter, and randomness *only* through an integer
-lattice hash of the cell coordinates — never `math/rand`, never a wall clock. A
-pure frame is snapshot-testable: the same `(w, h, tick)` yields the same bytes on
-every machine, so a golden test can pin it exactly.
+lattice hash of the cell coordinates — never `math/rand`, never a wall clock. A pure
+frame is snapshot-testable — but be precise about *what* is portable: `math.Cos/Sin`
+and float64 rounding are not bit-identical across arch/OS, so a golden pins the exact
+bytes only on the machine that generated it. The portable guarantees are the **shape**,
+the **no-panic**, and — for a loop — the **seam**; assert those, and keep the golden
+same-machine (regenerate with `-update`).
 
 A **stateful** animation can't be pure over `tick` alone, but it can still be
 deterministic given a fixed seed and a fixed update order — pin *that* instead, so
@@ -66,6 +69,20 @@ stays a dim wash rather than confetti.
   a vignette reads as a window onto something larger.
 - **Anchor to a focal point.** Motion that emanates from, orbits, or recedes toward
   a point reads as intentional; motion with no origin reads as noise.
+
+## The forever-loop seam
+
+"Loops forever" means two different things, and the difference is testable. A
+**free-running** field advances time linearly (`t := tick*speed`); it never stops, but
+nothing constrains it to return to an exact earlier frame: its mixed rates share no short
+common period, and float rounding makes any long one unreliable. So it does not seamlessly
+loop — though it can still be *ping-ponged* (played forward then reversed) into a seamless
+recording. A **true loop** drives every time-varying term through a single phase
+`θ = 2π·(tick mod period)/period`, so tick 0 and tick `period` feed identical inputs and
+render byte-identical frames — a seam with no jump. Prefer the θ form whenever the piece
+must close on itself (a splash, an idle screen), and pin it with a seam test
+(`Frame(…,0) == Frame(…,period)`): it is the one loop guarantee a same-machine golden
+can't give you.
 
 ## Tune by looking, not by arithmetic
 
