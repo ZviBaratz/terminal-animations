@@ -74,9 +74,10 @@ stays a dim wash rather than confetti.
 
 "Loops forever" means two different things, and the difference is testable. A
 **free-running** field advances time linearly (`t := tick*speed`); it never stops, but
-its incommensurate frequencies never bring it back to an exact earlier frame, so it does
-not seamlessly loop — it can still be *ping-ponged* (played forward then reversed) into a
-seamless recording. A **true loop** drives every time-varying term through a single phase
+nothing constrains it to return to an exact earlier frame: its mixed rates share no short
+common period, and float rounding makes any long one unreliable. So it does not seamlessly
+loop — though it can still be *ping-ponged* (played forward then reversed) into a seamless
+recording. A **true loop** drives every time-varying term through a single phase
 `θ = 2π·(tick mod period)/period`, so tick 0 and tick `period` feed identical inputs and
 render byte-identical frames — a seam with no jump. Prefer the θ form whenever the piece
 must close on itself (a splash, an idle screen), and pin it with a seam test

@@ -74,7 +74,7 @@ A small, framework-free convention — so the animation stays snapshot-testable 
 portable, and seeds a possible future library:
 
 ```go
-// pure & free-running (a plasma, a starfield): frame N from N alone
+// pure, runs forever (a plasma, a starfield, a nebula): frame N from N alone
 func Frame(w, h, tick int) string
 
 // stateful or resolving (game of life, a typewriter, a wipe):
@@ -99,13 +99,15 @@ the constructed size, not the `View` pane, so completion never shifts with view 
 
 **Free-running vs a seamless loop.** A pure field runs forever, but "forever" has two
 honest shapes. A **free-running** field drives time linearly (`t := tick*speed`): it never
-resolves, but its incommensurate frequencies mean it never *exactly* repeats
-(`examples/plasma`). A **seamless loop** instead drives every time-varying term through one
-phase `θ = 2π·(tick mod period)/period`, so `Frame(w,h,0)` and `Frame(w,h,period)` get
-identical inputs and are byte-identical — a provable forever-loop (`examples/nebula`). Pick
-deliberately: free-running is fine for a background that only needs to keep moving (and can
-be ping-ponged for a seamless *recording*); a true loop is what a splash or idle screen
-that must close on itself wants, and it earns a `TestLoopSeam` (below).
+resolves, and nothing pins a period, so no tick is guaranteed to reproduce an earlier frame
+(`examples/plasma`: its mixed sine rates share no short common period, and float rounding
+means you can't count on landing back on one). A **seamless loop** instead drives every
+time-varying term through one phase `θ = 2π·(tick mod period)/period`, so `Frame(w,h,0)`
+and `Frame(w,h,period)` get identical inputs and are byte-identical — a provable
+forever-loop (`examples/nebula`). Pick deliberately: free-running is fine for a background
+that only needs to keep moving (and can be ping-ponged for a seamless *recording*); a true
+loop is what a splash or idle screen that must close on itself wants, and it earns a
+`TestLoopSeam` (below).
 
 **Deliverables:** the `Frame`/`Animation` code, a `cmd/preview/` (copy the
 `${CLAUDE_PLUGIN_ROOT}/scripts/preview/` directory, rename `main.go.tmpl` → `main.go`, and

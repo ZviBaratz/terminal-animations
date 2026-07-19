@@ -33,9 +33,10 @@ pixel grid. Pick the rung deliberately.
 `w × 2h` pixels — **one pixel per column** horizontally (the cell is one column wide), two
 rows per cell vertically. So horizontal detail is capped at the terminal's column count:
 **filling the terminal is the main sharpness lever** — the same field is blocky in 40
-columns and smooth in 200. Quadrant/sextant/octant only subdivide the cell *vertically* and
-still carry two colours per cell, so they sharpen hard edges, not smooth gradients: for a
-smooth colour field half-block is already the right rung — render it wider, don't climb.
+columns and smooth in 200. Climbing *does* add sub-cell columns — quadrant/sextant/octant
+are two regions wide, not one — but each cell still carries only **two** colours, so the
+extra regions buy sharper hard *edges* inside a cell, not a smoother colour ramp: for a
+smooth colour field half-block is already the right rung — widen before you climb.
 
 ## The graphics-protocol tier (true raster — future/high-fidelity)
 
