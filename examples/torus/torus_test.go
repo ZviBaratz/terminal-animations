@@ -106,8 +106,12 @@ func TestDeterministic(t *testing.T) {
 // tick 0 and tick period feed identical inputs. This is the one loop guarantee a
 // same-machine golden cannot give (references/craft.md).
 func TestLoopSeam(t *testing.T) {
-	sizes := []struct{ w, h int }{{80, 24}, {40, 12}, {1, 1}, {17, 9}}
+	// The last two are past refSpan, so they exercise a STRETCHED period rather than
+	// the base one — without them every case here would run at 720 and the
+	// size-scaling path would go unchecked.
+	sizes := []struct{ w, h int }{{80, 24}, {40, 12}, {1, 1}, {17, 9}, {210, 60}, {160, 45}}
 	for _, s := range sizes {
+		period := Period(s.w, s.h)
 		if Frame(s.w, s.h, 0) != Frame(s.w, s.h, period) {
 			t.Fatalf("Frame(%d,%d): seam at tick 0 vs period(%d) is not byte-identical", s.w, s.h, period)
 		}
@@ -143,6 +147,7 @@ func TestPeriodIsMinimal(t *testing.T) {
 	const minDiff = 0.25
 	base := visibleCells(Frame(w, h, 0))
 	for _, div := range []int{2, 3, 4} {
+		period := Period(w, h)
 		other := visibleCells(Frame(w, h, period/div))
 		diff, lit := 0, 0
 		for r := range base {
@@ -168,6 +173,42 @@ func TestPeriodIsMinimal(t *testing.T) {
 	}
 }
 
+// TestPeriodScales pins the loop-length contract. The value 720 at 100×28 is not
+// cosmetic: the demo recording recipe in README.md dumps exactly 720 ticks at that
+// pane, so if this drifts the GIF stops closing on itself.
+func TestPeriodScales(t *testing.T) {
+	if got := Period(100, 28); got != basePeriod {
+		t.Fatalf("Period(100,28) = %d, want %d — the recording recipe assumes this", got, basePeriod)
+	}
+	// Never faster than the base loop, however small the pane.
+	for _, s := range []struct{ w, h int }{{1, 1}, {20, 6}, {44, 13}, {80, 24}, {0, 0}, {-3, 9}} {
+		if got := Period(s.w, s.h); got != basePeriod {
+			t.Fatalf("Period(%d,%d) = %d, want %d — small panes must not be sped up",
+				s.w, s.h, got, basePeriod)
+		}
+	}
+	// Past the reference the loop stretches, and monotonically.
+	prev := basePeriod
+	for _, s := range []struct{ w, h int }{{120, 32}, {160, 45}, {210, 60}, {260, 70}} {
+		got := Period(s.w, s.h)
+		if got <= basePeriod {
+			t.Fatalf("Period(%d,%d) = %d, want > %d — a large pane must slow down",
+				s.w, s.h, got, basePeriod)
+		}
+		if got < prev {
+			t.Fatalf("Period(%d,%d) = %d went backwards from %d — must be monotonic in pane size",
+				s.w, s.h, got, prev)
+		}
+		prev = got
+	}
+	// It scales with the SHORT axis in dots, so a pane that is merely wide does not
+	// slow down — the torus is fitted to the short axis and has not grown.
+	if Period(400, 28) != Period(100, 28) {
+		t.Fatalf("Period(400,28) = %d, want %d — extra width alone does not scale the torus",
+			Period(400, 28), Period(100, 28))
+	}
+}
+
 // TestFramesDiffer catches a dead animation — one that renders but never moves.
 func TestFramesDiffer(t *testing.T) {
 	const w, h = 80, 24
@@ -184,6 +225,7 @@ func TestFitsPane(t *testing.T) {
 	sizes := []struct{ w, h int }{{80, 24}, {120, 40}, {40, 40}, {200, 20}}
 	// A spread of ticks across the loop, so the check sees every attitude of the tumble.
 	for _, s := range sizes {
+		period := Period(s.w, s.h)
 		for tick := 0; tick < period; tick += period / 12 {
 			lines := visibleCells(Frame(s.w, s.h, tick))
 			for r, ln := range lines {

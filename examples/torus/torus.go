@@ -33,8 +33,12 @@
 //     motion-stable screen-locked Bayer dithering; the wires deliberately do not
 //     (dithering line art only makes it dashed).
 //   - A truly seamless forever-loop: every time-varying term flows through a single
-//     phase θ = 2π·(tick mod period)/period at an INTEGER harmonic, so Frame(w,h,0) and
-//     Frame(w,h,period) receive identical inputs and are byte-identical (TestLoopSeam).
+//     phase θ = 2π·(tick mod P)/P at an INTEGER harmonic, where P is Period(w,h), so
+//     Frame(w,h,0) and Frame(w,h,P) receive identical inputs and are byte-identical
+//     (TestLoopSeam). P is a function of the pane, not a constant — see Period for why
+//     a fixed angular rate flickers on a large pane and how the loop stretches to fix
+//     it. At the 100×28 reference pane P is 720, so the recording recipe in README.md
+//     still spans exactly one loop.
 //     Note tiltY: a torus tumbled by integer harmonics about two coordinate axes
 //     secretly repeats at period/2, because at that point the accumulated matrix is a
 //     product of π-rotations about coordinate axes and every one of those is a symmetry
@@ -53,7 +57,11 @@ import (
 
 // Tunable taste constants — decided by looking, not arithmetic.
 const (
-	period = 720 // loop length in ticks; θ wraps here (24 s at 30 fps — unhurried)
+	// basePeriod is the loop length AT refSpan (24 s at 30 fps — unhurried). The loop
+	// a given pane actually runs is Period(w, h), which stretches this so that motion
+	// per frame stays constant in DOT space rather than in angle. See Period.
+	basePeriod = 720
+	refSpan    = 112 // min(2*100, 4*28) — the 100×28 pane every constant was tuned at
 
 	spinU = 1   // θx harmonic — one full tumble about x per loop
 	spinV = 2   // θy harmonic — two about y; the 1:2 ratio is what makes it tumble
@@ -72,9 +80,15 @@ const (
 	minSteps    = 8   // floor on any sample count, so tiny panes still form a shape
 	maxSteps    = 900 // ceiling, so a huge pane cannot blow the frame budget
 
-	depthBias = 0.18 // world-space slack when testing a wire against the surface it
-	// lies on; too small and wires z-fight into dashes, too large
-	// and the far side leaks through
+	depthBias = 0.40 // world-space slack when testing a wire against the surface it
+	// lies on. A wire sits exactly ON the occluder, so its depth error
+	// grows with surface obliquity — the classic shadow-map acne shape.
+	// 0.18 rejected on-surface samples in 1-3 sample runs, punching holes
+	// that migrate as the object turns (dashes plus shimmer). Measured
+	// over the whole loop at 100x28, dropouts fall 217 -> 17 going 0.18
+	// -> 0.40, and flatten after that. The far side cannot leak in at
+	// this value: it sits ~2*smallR behind, and no drawn sample anywhere
+	// in the loop exceeds a depth delta of 0.5 until bias passes 0.7.
 
 	// The depth window the palette is stretched across, in units of maxR. Because the
 	// back-face cull removes everything facing away, the visible surface only spans the
@@ -201,6 +215,40 @@ func chan8(x float64) uint8 {
 	return uint8(v)
 }
 
+// Period returns the loop length in ticks for a w×h pane: Frame(w,h,0) and
+// Frame(w,h,Period(w,h)) are byte-identical.
+//
+// It is NOT a constant, and that is the point. The torus turns by a fixed ANGLE per
+// tick, but what the eye sees is dots moving across a grid — and a bigger pane scales
+// the object up, so the same angle carries every dot proportionally further. Past
+// about one dot of travel per frame the whole pattern rewrites itself each frame and
+// a braille render visibly flickers; there is no way to soften it, because a braille
+// cell is monochrome and an individual dot cannot be dimmed. Measured share of lit
+// dots that change between consecutive frames, at the shipped 24 s loop: 49% at
+// 100×28 (the tuned reference, reads as motion) but 95% at 210×60 (reads as flicker).
+//
+// So the loop stretches with the pane to hold that number near the reference. A pane
+// at the reference size runs the base 24 s; a pane twice as large takes about twice as
+// long, and turns at the same apparent speed. Smaller panes are never sped up — the
+// base loop is already unhurried — so this only ever slows things down.
+//
+// Pure in (w, h), so Frame stays pure. Resizing does move the phase, since tick is
+// divided by a different loop length; the animation is free-running and a resize
+// already re-lays out the whole pane, so that is not a seam anyone can see.
+func Period(w, h int) int {
+	if w <= 0 || h <= 0 {
+		return basePeriod
+	}
+	span := 2 * w
+	if 4*h < span {
+		span = 4 * h
+	}
+	if span <= refSpan {
+		return basePeriod
+	}
+	return int(math.Round(float64(basePeriod) * float64(span) / refSpan))
+}
+
 // Frame renders the torus at absolute frame `tick` into a w×h pane: exactly h lines
 // of exactly w cells, or "" for a degenerate pane. Pure — no wall clock, no
 // math/rand, no package-level mutable state — so it is snapshot-testable and safe to
@@ -216,7 +264,8 @@ func Frame(w, h, tick int) string {
 
 	// One phase for every time-varying term. The double modulo keeps a negative tick
 	// safe (TestNoPanic feeds -5), and every use of th below is an integer harmonic,
-	// which is what makes tick 0 and tick period byte-identical.
+	// which is what makes tick 0 and tick Period(w,h) byte-identical.
+	period := Period(w, h)
 	th := 2 * math.Pi * float64(((tick%period)+period)%period) / float64(period)
 
 	// Rotation: Ry(θy) then Rx(θx). tiltY rides inside θy as a constant offset — see

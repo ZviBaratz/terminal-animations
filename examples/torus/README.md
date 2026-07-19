@@ -43,8 +43,16 @@ repo's worked example of the **top rung of the resolution ladder**.
   The wash is a smooth dim gradient, so it gets motion-stable screen-locked **Bayer**
   dithering; the wires deliberately do not (dithering line art only makes it dashed).
 - **A truly seamless forever-loop.** Every time-varying term rides one phase
-  `θ = 2π·(tick mod period)/period` at an **integer** harmonic, so `Frame(w,h,0)` and
-  `Frame(w,h,period)` are byte-identical — pinned by `TestLoopSeam`.
+  `θ = 2π·(tick mod P)/P` at an **integer** harmonic, so `Frame(w,h,0)` and
+  `Frame(w,h,P)` are byte-identical — pinned by `TestLoopSeam`.
+- **The loop length scales with the pane** (`Period(w, h)`, 720 at the 100×28
+  reference). The torus turns a fixed *angle* per tick, but the eye sees *dots crossing
+  a grid*, and a bigger pane scales the object up so the same angle carries every dot
+  further. Past ~1 dot of travel per frame the whole pattern rewrites each frame and it
+  visibly flickers — with no fix available, because a braille cell is monochrome and a
+  single dot cannot be dimmed. Measured share of lit dots changing between consecutive
+  frames, at a fixed 24 s loop: **49% at 100×28 but 95% at 210×60**. Stretching the loop
+  with the pane holds that near 50% everywhere (54% at 210×60, which runs 51 s).
 - **Determinism.** `Frame(w, h, tick)` is pure — no wall clock, no `math/rand`, no
   package-level state. The depth and mask buffers are per-call locals, so it is also
   safe to call concurrently.
@@ -93,8 +101,10 @@ cd examples/torus
   go run ./cmd/preview frames 120 6 100 28
 ```
 
-`120 × 6 = 720 = period`, so the dump spans exactly one loop and the GIF closes with no
-ping-pong.
+`120 × 6 = 720 = Period(100, 28)`, so the dump spans exactly one loop and the GIF closes
+with no ping-pong. **The pane size and the tick count are linked** — `Period` scales with
+the pane, so recording a different size means recomputing the dump to match, or the GIF
+will not close.
 
 **Note the small pane and the matching `--width`.** Braille is the one tier where the
 recording size really matters: the wireframe *is* the dot pattern, so any downscale
@@ -106,6 +116,22 @@ This animation is also why `ansi2png.py` now understands braille at all — see 
 CHANGELOG. Before that it collapsed every braille cell to a solid foreground block, so
 the headless gate (**and this GIF, which is built through it**) showed a filled blob
 instead of a wireframe.
+
+## What the headless gate cannot see
+
+Two things about this animation are invisible to `ansi2png.py` and were only caught by
+running it in a real terminal. Both are worth knowing before you trust a PNG:
+
+- **Braille dots render as separated points, not filled rectangles.** `ansi2png.py`
+  fills each dot's sub-rectangle, so a wire reads as a solid line in the PNG. A real
+  terminal font draws each dot as a small mark with space around it, so the same wire
+  reads as a *dotted* line. The lines are genuinely contiguous — consecutive samples land
+  within one dot 99.7% of the time at every pane size — so this is the medium, not a
+  defect. It does mean **the PNG gate flatters braille line art**; judge solidity live.
+- **Temporal aliasing does not exist in a still.** A PNG has no next frame, so nothing
+  about flicker, shimmer or dot-popping can appear in it. That is how a fixed angular
+  rate shipped despite flickering badly on a large pane (see `Period`). For any animation
+  on this rung, the live terminal is the only gate for motion.
 
 ## Tuning notes
 
@@ -129,8 +155,15 @@ and picked **by eye**. What the sweeps actually rejected:
   and left the torus filling only ~50% of the pane. The exact worst case over every
   attitude is `maxR·persp/√(persp²−maxR²)` — confirmed against a numeric sweep — which
   recovers that 1.66× and still guarantees `TestFitsPane`.
-- **`depthBias` (0.18)** — `0.06` reintroduces z-fighting and the wires break into
-  dashes; `0.25` is solid but lets the far side fringe through at the edge-on attitude.
+- **`depthBias` (0.40)** — a wire lies exactly *on* the occluder, so its depth error
+  grows with surface obliquity: the classic shadow-map acne shape. The original `0.18`
+  was rejecting on-surface samples in runs of 1–3, punching holes that migrate as the
+  object turns. Measured over the whole loop at 100×28, those dropouts fall **217 → 17**
+  going `0.18 → 0.40`, and flatten after. An earlier note here claimed `0.25` lets the
+  far side fringe through at the edge-on attitude; that is **not reproducible** — the far
+  side sits ~`2·smallR` back, and across all 720 ticks no drawn sample exceeds a depth
+  delta of 0.5 until the bias passes 0.7. There is no far-side population to leak at
+  these values, and hidden-line removal is untouched.
 
 Measured cost, since a two-pass rasterizer invites suspicion: **9.8 ms/frame at 220×56**
 and **2.5 ms at 100×28**, comfortably inside the 33 ms budget of the preview's 30 fps —
