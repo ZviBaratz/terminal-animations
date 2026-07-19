@@ -17,7 +17,7 @@ it there. You decide taste by **rendering and looking**, never by arithmetic.
 First read `${CLAUDE_PLUGIN_ROOT}/skills/author-animation/references/craft.md` — it is the
 rubric you tune against; `${CLAUDE_PLUGIN_ROOT}/skills/author-animation/references/techniques.md`
 has the resolution-ladder / colour / dither levers if a fix needs one. The harness is in
-`${CLAUDE_PLUGIN_ROOT}/scripts/` (`preview.go.tmpl`, `preview.sh`, `record.sh`, `ansi2png.py`).
+`${CLAUDE_PLUGIN_ROOT}/scripts/` (`preview/`, `preview.sh`, `record.sh`, `ansi2png.py`).
 
 ## Loop
 

@@ -20,8 +20,8 @@
 package plasma
 
 import (
-	"fmt"
 	"math"
+	"strconv"
 	"strings"
 )
 
@@ -93,7 +93,9 @@ func Frame(w, h, tick int) string {
 	cy := vMax*0.5 + 0.10*math.Sin(t*0.37)
 
 	var b strings.Builder
-	b.Grow(w*h*22 + h*4)
+	// A full cell is at most 39 bytes (\x1b[38;2;255;255;255;48;2;255;255;255m▀);
+	// each row adds a 4-byte reset and a newline.
+	b.Grow(w*h*39 + h*5)
 	for r := 0; r < h; r++ {
 		for c := 0; c < w; c++ {
 			u := (float64(c) + 0.5) / W
@@ -101,7 +103,7 @@ func Frame(w, h, tick int) string {
 			botPy := float64(2*r+1) + 0.5
 			tr, tg, tb := pixel(u, topPy/W, t, cx, cy, vig(u, topPy/H2))
 			br, bg, bb := pixel(u, botPy/W, t, cx, cy, vig(u, botPy/H2))
-			fmt.Fprintf(&b, "\x1b[38;2;%d;%d;%d;48;2;%d;%d;%dm▀", tr, tg, tb, br, bg, bb)
+			appendCell(&b, tr, tg, tb, br, bg, bb)
 		}
 		b.WriteString("\x1b[0m")
 		if r < h-1 {
@@ -109,4 +111,29 @@ func Frame(w, h, tick int) string {
 		}
 	}
 	return b.String()
+}
+
+// appendCell writes one half-block cell — foreground = top pixel, background = bottom —
+// as an SGR truecolor sequence. Hand-rolled with strconv so the per-cell hot path
+// carries no fmt reflection or allocation (Frame calls this w×h times a frame).
+func appendCell(b *strings.Builder, tr, tg, tb, br, bg, bb uint8) {
+	b.WriteString("\x1b[38;2;")
+	writeChan(b, tr)
+	b.WriteByte(';')
+	writeChan(b, tg)
+	b.WriteByte(';')
+	writeChan(b, tb)
+	b.WriteString(";48;2;")
+	writeChan(b, br)
+	b.WriteByte(';')
+	writeChan(b, bg)
+	b.WriteByte(';')
+	writeChan(b, bb)
+	b.WriteString("m▀")
+}
+
+// writeChan appends one colour channel's decimal digits (0–255) to b.
+func writeChan(b *strings.Builder, v uint8) {
+	var s [3]byte
+	b.Write(strconv.AppendUint(s[:0], uint64(v), 10))
 }
