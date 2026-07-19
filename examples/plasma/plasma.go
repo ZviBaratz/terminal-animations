@@ -14,6 +14,11 @@
 //     rather than meeting a hard rectangular border (references/craft.md).
 //   - Determinism: a pure function of (w, h, tick) — no wall clock, no math/rand — so
 //     it is snapshot-testable (see plasma_test.go's golden).
+//   - Free-running, not a seamless loop: time is linear (t := tick*speed), so the field
+//     drifts forever but never *exactly* repeats — the deliberate contrast with
+//     examples/nebula, which drives a phase θ = 2π·(tick mod period)/period to close its
+//     loop with no seam. A free-running field is right for a background; ping-pong it for
+//     a seamless recording (see README.md).
 //
 // The taste constants below were chosen against the beauty gate (the ansi2png.py
 // filmstrip), by eye — not computed. See README.md.
@@ -86,9 +91,9 @@ func Frame(w, h, tick int) string {
 		return ""
 	}
 	W := float64(w)
-	H2 := float64(2 * h) // pixel rows: two per cell
-	vMax := H2 / W       // world height, keeping pixels square (circles stay round)
-	t := float64(tick) * speed
+	H2 := float64(2 * h)       // pixel rows: two per cell
+	vMax := H2 / W             // world height, keeping pixels square (circles stay round)
+	t := float64(tick) * speed // linear time — free-running: drifts forever, never exactly repeats
 	cx := 0.5 + 0.18*math.Cos(t*0.5)
 	cy := vMax*0.5 + 0.10*math.Sin(t*0.37)
 
