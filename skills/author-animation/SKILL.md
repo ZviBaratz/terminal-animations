@@ -145,9 +145,21 @@ Test: exact `h`×`w` across a spread of sizes, no panic on any `(w, h, tick)` in
 tiny and zero-area panes; a pure `Frame` is byte-stable (`Frame(w,h,t) == Frame(w,h,t)`);
 a **seamless loop** also asserts its seam with a `TestLoopSeam` — `Frame(w,h,0) ==
 Frame(w,h,period)`, and again at an offset (`examples/nebula`), the one loop guarantee a
-same-machine golden can't give you; stateful things get canonical goldens (a Life blinker
-is period-2, a glider returns shifted by (1,1) after 4 steps; a typewriter's `Done()` flips
-exactly when the last rune shows, never splitting a multibyte rune).
+same-machine golden can't give you; a **rotating symmetric subject** also asserts its
+`period` is *minimal*, since a seam test cannot detect a loop that closed early
+(`craft.md`); stateful things get canonical goldens (a Life blinker is period-2, a glider
+returns shifted by (1,1) after 4 steps; a typewriter's `Done()` flips exactly when the last
+rune shows, never splitting a multibyte rune).
+
+**Then mutate the thing under test and watch the test fail.** Break the constant, delete
+the cull, flip the bit table, re-run — if it still passes, the test is decoration. This is
+not optional rigour: an animation is mostly float thresholds and near-symmetries, so a
+plausible-looking assertion passes for the wrong reason far more often than it does in
+ordinary code (exact `!=` defeated by `sin(π) = 1.22e-16`; a whole-frame compare satisfied
+by a background layer; a lit-cell count that barely moves when the occluder is removed).
+A test that passes with the feature ripped out is **worse than no test** — it reads as
+coverage. If a property resists a test with teeth, say so in a comment where the test
+would be and check it at the beauty gate instead, as `examples/{plasma,torus}` do.
 
 ## Tune — the beauty gate
 

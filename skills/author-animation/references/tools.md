@@ -82,5 +82,9 @@ into an image — the headless stand-in for the GIF gate. You still judge the co
 never from the formula. It resolves half-block, quadrant and full-block cells into their
 2×2 sub-cell fg/bg regions and **braille (U+2800–28FF) into its 2×4 dot grid** — a lit dot
 takes the foreground, an unlit dot the background — so braille line art reads as line art
-rather than a field of solid rectangles. It still **collapses sextant and octant cells to
-their foreground**; those two tiers only read faithfully on a real terminal or the GIF gate.
+rather than a field of solid rectangles. Sextant and octant both miss, but not in the same
+way: a sextant cell **collapses to its foreground**, while an octant cell is **dropped
+entirely** — on a Python with a pre-Unicode-16 `unicodedata` the parse loop emits no cell,
+shearing every row that contains one. Those two tiers only read faithfully on a real
+terminal or the GIF gate; see the headless-gate column in
+[`techniques.md`](techniques.md#the-spatial-resolution-ladder).

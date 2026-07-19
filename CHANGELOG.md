@@ -61,6 +61,38 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Changed
 
+- **The resolution ladder now states which rungs the headless gate can actually see.**
+  `techniques.md`'s ladder table gains a **Headless gate** column, because the skill
+  otherwise pushes authors *up* the ladder into a blind spot: `record-headless.sh` builds
+  the GIF/MP4 through `ansi2png.py`, so choosing a rung it cannot resolve means no
+  headless gate and no demo recording on a box without `vhs`/`ttyd`. Half-block, quadrant
+  and braille resolve; **sextant collapses to its foreground; octant is worse — the cell
+  is dropped entirely.** Octants need Unicode 16 (Sept 2024), so a Python with an older
+  `unicodedata` (3.10 ships UCD 13) reports them non-printable and the parse loop emits no
+  cell, shearing every row that contains one (a 5-cell row rasterizes to 4). That fails
+  silently and structurally rather than visibly, so it is called out explicitly.
+- **`techniques.md` documents the braille bit order**, which is irregular: the numbering
+  is column-major for the historic 6-dot cell and only then appends dots 7/8 as a bottom
+  row, so the obvious `1 << (row*2 + col)` is wrong on three of the four rows. A wrong
+  mapping still renders something plausible, so it fails silently — the table plus its
+  spot checks (`⠁ ⡀ ⢀ ⡇ ⣿`) are there to be pinned in a unit test. Also notes that braille
+  dots are near-square and both axes must ride one scale factor.
+- **`craft.md`: a closed seam does not prove `period` is the *true* period.** Rotating a
+  symmetric subject (torus, sphere, cube, polyhedron) by integer harmonics lands back on a
+  symmetry of the object at `period/2`, so the loop silently closes early and the recording
+  wastes half its frames on a repeat. Adds the minimal-period test and the two subtleties
+  that give it teeth: compare the SGR-stripped glyph grid (another θ-varying layer would
+  otherwise satisfy the assertion on its own), and require a large *fraction* of cells to
+  differ (`sin(π)` is `1.22e-16`, so exact `!=` passes even when fully degenerate).
+- **`SKILL.md`: mutate the thing under test and watch the test fail.** An animation is
+  mostly float thresholds and near-symmetries, so a plausible assertion passes for the
+  wrong reason far more often than in ordinary code; a test that survives its feature
+  being removed reads as coverage while providing none. If a property resists a test with
+  teeth, say so where the test would be and check it at the beauty gate.
+- **`scripts/README.md`: detail tiers must record 1:1.** `--width` rescaling is harmless
+  for a smooth field but destroys line art on a sub-cell tier, where the artwork *is* the
+  dot pattern — match `pane × cell-size` to `--width` and choose a deliberately small pane,
+  inverting the "fill the terminal" sharpness lever that applies to fields.
 - **`ansi2png.py` now renders braille (U+2800–28FF) as its 2×4 dot grid** instead of
   collapsing the cell to a solid foreground block. Lit dots take the foreground colour,
   unlit dots the background, and `U+2800` (the braille blank) is real negative space —
@@ -74,8 +106,8 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   and full-block output is **byte-identical**, verified against the previous version at
   eight cell sizes including odd ones, so `docs/plasma.gif`, `docs/nebula.gif` and
   `docs/nebula.mp4` are unchanged and need no regeneration. **Sextant (U+1FB00–1FB3B)
-  and octant (U+1CD00–1CDE5) still collapse to their foreground** — judge those two
-  tiers on a real terminal or the GIF gate. The stale caveats in `ansi2png.py`'s
+  collapses to its foreground and octant (U+1CD00–1CDE5) is dropped entirely** — judge
+  those two tiers on a real terminal or the GIF gate. The stale caveats in `ansi2png.py`'s
   docstring, `scripts/README.md` and `references/tools.md` are corrected accordingly.
 - **`cmd/preview` scaffold is now a directory** — `scripts/preview.go.tmpl` becomes
   `scripts/preview/` (`main.go.tmpl` + build-tagged `size_unix.go` / `size_other.go`),

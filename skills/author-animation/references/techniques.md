@@ -11,17 +11,65 @@ A monospace cell is ~1×2 (twice as tall as wide). Glyphs that subdivide the cel
 paired with a foreground (ink) and background colour, turn one cell into a small
 pixel grid. Pick the rung deliberately.
 
-| Rung | Codepoints | Grid / cell | Colour | Support |
-|---|---|---|---|---|
-| **Half block** ▀▄▌▐ | U+2580, U+2584, U+258C, U+2590 | **1×2** (2px) | **fg+bg = 2 independent truecolor pixels** | Universal. The portable workhorse for real raster. |
-| **Quadrant** | U+2596–259F | **2×2** (4 regions) | 2 colours/cell (bi-level pattern) | Very broad. |
-| **Sextant** | U+1FB00–1FB3B (Unicode 13, 2020) | **2×3** (6 regions) | 2 colours/cell | Good by now: kitty, foot, WezTerm, VTE, Konsole. |
-| **Octant** | U+1CD00–1CDE5 (Unicode 16, Sept 2024) | **2×4** (8 regions) | 2 colours/cell | Newer/patchier; good terminals draw them programmatically. Verify per terminal. |
-| **Braille** ⠿ | U+2800–28FF | **2×4** (8 dots) | **monochrome** — one fg colour, dots on/off | Universal. |
+| Rung | Codepoints | Grid / cell | Colour | Support | Headless gate |
+|---|---|---|---|---|---|
+| **Half block** ▀▄▌▐ | U+2580, U+2584, U+258C, U+2590 | **1×2** (2px) | **fg+bg = 2 independent truecolor pixels** | Universal. The portable workhorse for real raster. | ✅ resolved |
+| **Quadrant** | U+2596–259F | **2×2** (4 regions) | 2 colours/cell (bi-level pattern) | Very broad. | ✅ resolved |
+| **Sextant** | U+1FB00–1FB3B (Unicode 13, 2020) | **2×3** (6 regions) | 2 colours/cell | Good by now: kitty, foot, WezTerm, VTE, Konsole. | ❌ collapses to fg |
+| **Octant** | U+1CD00–1CDE5 (Unicode 16, Sept 2024) | **2×4** (8 regions) | 2 colours/cell | Newer/patchier; good terminals draw them programmatically. Verify per terminal. | ❌❌ **cell dropped** |
+| **Braille** ⠿ | U+2800–28FF | **2×4** (8 dots) | **monochrome** — one fg colour, dots on/off | Universal. | ✅ resolved |
+
+**Climbing can blind your own beauty gate — check the last column before you commit to a
+rung.** `ansi2png.py` resolves half-block, quadrant and braille into their sub-cell
+regions, but **collapses a sextant cell to a flat foreground block**, and **drops an
+octant cell entirely**. That is not a cosmetic caveat: `record-headless.sh` builds the
+GIF/MP4 *through* `ansi2png.py`, so on a box without `vhs`/`ttyd` a ❌ rung means you have
+**no headless gate and no demo recording** — you would be tuning blind.
+
+Octant is the trap worth spelling out, because it fails *silently and structurally*
+rather than visibly. Octants need Unicode 16 (Sept 2024); a Python whose `unicodedata` is
+older (3.10 ships UCD 13) reports `isprintable() == False` for U+1CD00–1CDE5, and the
+rasterizer's parse loop contributes **no cell at all** for a non-printable character. So
+every cell after the first octant on a row **shifts one column left** — a 5-cell row
+rasterizes to 4. You do not get a wrong colour, you get a sheared image, which is easy to
+misread as a bug in your animation. Check with
+`python3 -c "import unicodedata; print(unicodedata.unidata_version)"` before trusting an
+octant filmstrip.
+
+If you need a ❌ rung, budget for one of: teaching `ansi2png.py` that rung (the
+`rows × cols` sub-cell mask machinery is already there — braille was added this way, and
+sextant is a `(2, 3)` table), recording via `record.sh` (needs `vhs` + `ttyd`), or judging
+on a real terminal only.
+
+**Braille bit order is irregular — use the table, not a shift.** The codepoint is
+`U+2800 + mask`, but the dot numbering is column-major for the historic 6-dot cell
+(1,2,3 down the left column, 4,5,6 down the right) and only *then* appends dots 7/8 as a
+bottom row. So the obvious `1 << (row*2 + col)` is **wrong on three of the four rows** —
+it gives `0x08` for (row 1, col 1) where the answer is `0x10`:
+
+```
+ dot1 dot4      0x01 0x08      (row 0, col 0) (row 0, col 1)
+ dot2 dot5      0x02 0x10      (row 1, col 0) (row 1, col 1)
+ dot3 dot6      0x04 0x20      (row 2, col 0) (row 2, col 1)
+ dot7 dot8      0x40 0x80      (row 3, col 0) (row 3, col 1)   <- appended later
+```
+
+Spot checks: `⠁` = dot 1 only, `⡀` = dot 7, `⢀` = dot 8, `⡇` = the whole left column,
+`⣿` = all eight. Pin the table in a unit test — a wrong mapping still renders *something*
+plausible, so it fails silently and reads as a subtly wrong texture rather than a crash.
+
+Note also that **braille dots are very nearly square**: a terminal cell is roughly 1×2, and
+2×4 dots divide that into 0.5×0.5 units. So drive both axes off the *same* scale factor or
+circles come out elliptical — `examples/{plasma,nebula}` do it by normalizing y against the
+pixel **width**, `examples/torus` by projecting both axes through one `scale` derived from
+the short side. Either works; mixing per-axis normalizations does not.
 
 **The tradeoff that decides the rung:**
 - **Braille** = the finest *monochrome* detail (8 addressable dots) — line art, edges,
-  plots, high-detail silhouettes (Bad Apple). One colour per cell.
+  plots, high-detail silhouettes (Bad Apple). One colour per cell. Because the mask is
+  monochrome, it is the tier that most cleanly forces `craft.md`'s two-channel split:
+  let the **dots carry geometry** and **colour carry brightness**, and never dim a line
+  by dropping dots — thin strokes shatter into noise (`examples/torus`).
 - **Half/quadrant/sextant/octant** = *colour* raster, coarser, only 2 colours in a
   cell. **Half-block is the sweet spot**: 2 fully independent 24-bit pixels per cell,
   works everywhere. Climb to sextant/octant for more colour-pixels where the terminal
