@@ -13,6 +13,7 @@ import (
 	"os"
 	"os/signal"
 	"strconv"
+	"sync"
 	"syscall"
 	"time"
 
@@ -58,10 +59,24 @@ func main() {
 		return
 	}
 
-	// Live loop: use the alternate screen buffer, hide the cursor, and render at the
-	// real terminal size every frame (so it fills the pane and reflows on resize).
-	fmt.Print("\x1b[?1049h\x1b[?25l") // enter alt screen + hide cursor
-	restore := func() { fmt.Print("\x1b[?25h\x1b[?1049l") }
+	// Live loop: take over the terminal screen — alternate buffer, hidden cursor —
+	// and render at the real terminal size every frame (so it fills the pane and
+	// reflows on resize). When stdout is not a TTY (e.g. piped), skip the screen
+	// setup/teardown codes so they don't pollute the stream.
+	_, _, isTTY := terminalSize(os.Stdout.Fd())
+	if isTTY {
+		fmt.Print("\x1b[?1049h\x1b[?25l") // enter alt screen + hide cursor
+	}
+	// restore is idempotent (sync.Once): the deferred call, the signal handler, and
+	// the resolving-done path may each invoke it, but the teardown must run once.
+	var restoreOnce sync.Once
+	restore := func() {
+		restoreOnce.Do(func() {
+			if isTTY {
+				fmt.Print("\x1b[?25h\x1b[?1049l") // show cursor + leave alt screen
+			}
+		})
+	}
 	defer restore()
 	// A signal-terminated Go program does NOT run deferred funcs, so a bare Ctrl-C
 	// would leave the alt screen up and the cursor hidden. Catch it, restore, exit.

@@ -19,8 +19,10 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   (was a fixed 80×24 corner) via a zero-dependency `TIOCGWINSZ` ioctl, and uses the alt
   screen so it exits cleanly. `frames` gains a stride and optional pane size —
   `frames N [stride] [w h]` — so a slow forever-loop shows real motion in the headless
-  gate, and a big field can be rendered for `ansi2png.py`. Both reference previews were
-  regenerated from the new scaffold.
+  gate, and a big field can be rendered for `ansi2png.py`. **Note the third positional
+  arg is now `stride`, not width**: the old `frames N W H` is now `frames N stride W H`,
+  and a pane size is only applied when both `W` and `H` are given. Both reference previews
+  were regenerated from the new scaffold.
 - `examples/plasma` adopts the allocation-free `strconv` per-cell render path (the
   `appendCell`/`writeChan` helpers, matching `examples/nebula`) — byte-identical output,
   so the golden is unchanged; the scaffold now models the fast path in both examples.
