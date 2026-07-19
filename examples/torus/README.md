@@ -138,7 +138,8 @@ but only because the occluder's `cos`/`sin` are hoisted into per-frame tables, s
 inner loop is multiply-add with no transcendentals.
 
 There is deliberately **no `TestHiddenLineRemoval`**; `torus_test.go` explains why at
-length. The short version: the whole occlusion pipeline only changes the lit-cell count
-by 8–18%, and its two stages are redundant enough that disabling either alone moves it
-~1%, so any threshold tight enough to catch a regression would be flaky. Occlusion is a
-visual property, checked at the beauty gate.
+length. The short version: summed over the whole loop at 100×28 the occlusion pipeline
+only changes the lit-cell count by ~19%, and its two stages are redundant enough that
+disabling either alone moves it ~4% (and on some frames not at all), so any threshold
+tight enough to catch a regression would be flaky. Occlusion is a visual property,
+checked at the beauty gate.
