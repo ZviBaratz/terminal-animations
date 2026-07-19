@@ -11,6 +11,14 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
+### Added
+
+- **`scripts/record-headless.sh`** — a vhs-free beauty gate. It runs a `frames` dump,
+  splits it on the `--- frame N ---` headers, rasterizes each frame through `ansi2png.py`,
+  and encodes a 256-colour seamless-loop GIF (motion-stable Bayer dither) plus a truecolor
+  H.264 MP4, using only `ffmpeg` + `python3`. Pairs with the scaffold's strided `frames`
+  mode: make `frames × stride` span one loop `period` and the GIF loops with no ping-pong.
+
 ### Changed
 
 - **`cmd/preview` scaffold is now a directory** — `scripts/preview.go.tmpl` becomes

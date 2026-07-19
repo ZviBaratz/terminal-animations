@@ -65,6 +65,11 @@ rasterize each with `ansi2png.py` → assemble with `ffmpeg` using **Bayer** dit
 (ordered, stable under motion). Because the animation is already a seamless loop
 (`period` ticks close back on frame 0), the GIF loops perfectly with no ping-pong.
 
+That pipeline now ships as **[`scripts/record-headless.sh`](../../scripts/record-headless.sh)**:
+`../../scripts/record-headless.sh -o docs/nebula -- go run ./cmd/preview frames 120 9 220 56`
+dumps one full loop (120 × 9 = 1080 = `period`) and writes both `docs/nebula.gif` and
+`docs/nebula.mp4`.
+
 The GIF is capped at 256 colours, which bands a smooth truecolor nebula; the **live
 preview** (`go run ./cmd/preview`, full 24-bit) is the true fidelity. The committed
 truecolor **[`docs/nebula.mp4`](../../docs/nebula.mp4)** (H.264, built from the same

@@ -11,6 +11,7 @@ colour.
 | `preview/` | Copy the directory to `cmd/preview/`, rename `main.go.tmpl` → `main.go`, and wire `render()`. `main.go.tmpl` is the live loop + `frames` dumper; the verbatim build-tagged `size_*.go` give the live loop the real terminal size so it fills the pane. |
 | `preview.sh` | Thin wrapper that runs the preview program live (`Ctrl-C` to quit). |
 | `record.sh` | The beauty gate: records a short GIF of the preview via vhs. |
+| `record-headless.sh` | Headless beauty gate: turns a `frames` dump into a seamless-loop GIF + a truecolor MP4 with only `ffmpeg` + `python3` — no vhs. |
 | `ansi2png.py` | Headless colour gate: rasterizes the `frames` dump into a PNG you can open/Read when there's no TTY. Stdlib Python, no deps. |
 
 ## Inner loop (fast, no extra tools)
@@ -68,3 +69,23 @@ go run ./cmd/preview frames 5 | ./scripts/ansi2png.py --cw 8 --ch 16 > /tmp/anim
 
 Prefer the flags — an env var set before the `|` (`ANSI2PNG_CW=8 go run … | ansi2png.py`)
 applies to the *producer*, not to `ansi2png`, so it is silently ignored.
+
+### The moving artifact, still no vhs — `record-headless.sh`
+
+`ansi2png.py` gives you a still filmstrip; `record-headless.sh` gives you the *moving*
+artifact on the same vhs-free box (only `ffmpeg` + `python3`). It runs your `frames`
+command, splits the dump on the `--- frame N ---` headers, rasterizes each frame through
+`ansi2png.py`, and encodes a 256-colour **seamless-loop GIF** (motion-stable Bayer dither)
+plus a truecolor **MP4**:
+
+```sh
+# 120 frames × stride 9 = 1080 ticks = exactly one nebula loop → a seamless GIF + MP4:
+scripts/record-headless.sh -o out/nebula -- go run ./cmd/preview frames 120 9 220 56
+# → out/nebula.gif  (loops forever)   and   out/nebula.mp4  (smaller, sharper)
+```
+
+Make `frames × stride` equal one loop `period` so the GIF loops seamlessly — that's what
+the scaffold's strided `frames N [stride] [w h]` mode is for. A full-motion field
+compresses poorly as a GIF, so the MP4 is typically ~20–30× smaller at higher fidelity and
+is the better "optimal" artifact. `scripts/record-headless.sh --help` lists the fps / width
+/ cell-size knobs (and `--no-gif` / `--no-mp4`).
