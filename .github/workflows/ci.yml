@@ -78,3 +78,28 @@ jobs:
 
       - name: Test the ANSI rasterizer
         run: python3 scripts/ansi2png_test.py
+
+  web:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          # `node --test` is built in from 18, so there is no package.json, no
+          # install step, and no dependency — the JS equivalent of the
+          # stdlib-only rule ansi2png.py follows.
+          node-version: '20'
+
+      - name: Test the sub-cell tables
+        run: |
+          set -euo pipefail
+          # web/glyphs.js holds the braille and block masks and the sub-cell
+          # tiling rule, which have to agree with scripts/ansi2png.py glyph for
+          # glyph — the page claims to match the PNG export, and these tables are
+          # where that claim is either kept or quietly broken.
+          #
+          # `node --test` exits 0 when it matches no files, so assert that a suite
+          # actually ran rather than letting a rename make this pass vacuously.
+          test -f web/glyphs.test.js || { echo "::error::web/glyphs.test.js is missing"; exit 1; }
+          node --test web/
