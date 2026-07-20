@@ -1,0 +1,80 @@
+# Runs the repo's test suites on every push and pull request.
+#
+# pages.yml already *builds* every animation to WASM on PRs, so a compile break
+# is caught. What it cannot catch is a passing build with failing tests, and
+# until this workflow existed nothing ran the suites at all — they passed only
+# when someone remembered to run them by hand.
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  go:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: stable
+          # Each example is its own module with no dependencies, so there is no
+          # shared go.sum for the build cache to key on.
+          cache: false
+
+      - name: Test every example module
+        run: |
+          set -euo pipefail
+          # Without nullglob an unmatched glob expands to its own literal text,
+          # so the loop below would run once with mod='examples/*/go.mod' and
+          # die on `cd examples/*` before the count guard is ever reached —
+          # failing on a confusing error instead of the intended one.
+          shopt -s nullglob
+
+          # Discovered, not hardcoded, so a new example is covered the moment it
+          # lands — and the count is asserted below, because a glob that matches
+          # nothing would otherwise make this job pass vacuously.
+          count=0
+          for mod in examples/*/go.mod; do
+            anim="$(basename "$(dirname "$mod")")"
+            echo "::group::$anim"
+            (
+              cd "$(dirname "$mod")"
+              # gofmt -l prints offenders and exits 0, so check for output.
+              unformatted="$(gofmt -l .)"
+              if [[ -n "$unformatted" ]]; then
+                echo "::error::gofmt: $anim has unformatted files: $unformatted"
+                exit 1
+              fi
+              go vet ./...
+              go test -race ./...
+            )
+            echo "::endgroup::"
+            count=$((count + 1))
+          done
+
+          if [[ $count -eq 0 ]]; then
+            echo "::error::no examples/*/go.mod found — nothing was tested"
+            exit 1
+          fi
+          echo "tested $count module(s)"
+
+  scripts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          # ansi2png.py is deliberately stdlib-only, so there is nothing to
+          # install and no version to pin beyond a currently-supported 3.x.
+          python-version: '3.12'
+
+      - name: Test the ANSI rasterizer
+        run: python3 scripts/ansi2png_test.py
