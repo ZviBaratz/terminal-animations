@@ -42,6 +42,10 @@ jobs:
       - name: Build every animation to WASM
         run: |
           set -euo pipefail
+          # Without nullglob an unmatched glob expands to its own literal text,
+          # so the loop below would run once with a bogus path and the
+          # "nothing to publish" guard would never fire.
+          shopt -s nullglob
           cp "$(go env GOROOT)/lib/wasm/wasm_exec.js" web/wasm_exec.js
 
           names=()

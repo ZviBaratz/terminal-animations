@@ -58,6 +58,21 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   having to guess `?anim=` names. `scripts/harness.sh` writes the same manifest locally, and the
   picker stays hidden when only one animation is built. Requires a one-time repo setting:
   **Settings → Pages → Source = "GitHub Actions"**.
+- **`.github/workflows/ci.yml`** — the repo had test suites but nothing running them. `pages.yml`
+  builds every animation on PRs, so a *compile* break was caught; a passing build with failing
+  tests was not, and the suites only ran when someone remembered to run them by hand. This adds
+  two jobs: `go` runs `gofmt -l`, `go vet` and `go test -race` in each `examples/*` module, and
+  `scripts` runs `ansi2png_test.py`. Modules are discovered rather than listed, so a new example
+  is covered the moment it lands, and the discovered count is asserted non-zero — a glob that
+  matched nothing would otherwise make the job pass vacuously.
+
+### Fixed
+
+- **The "nothing to publish" guard in `pages.yml` could never fire.** Without `shopt -s nullglob`,
+  an unmatched bash glob expands to its own literal text, so `for dir in examples/*/cmd/wasm`
+  runs once with a bogus path and the `${#names[@]} -eq 0` check sees one entry, not zero. The
+  job still failed — on `cd` to a nonexistent directory — but with a confusing error instead of
+  the intended one. Both workflows now set `nullglob`.
 
 ### Changed
 
