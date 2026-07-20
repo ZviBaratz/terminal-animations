@@ -47,7 +47,7 @@ a real window by hand. The browser harness compiles the animation to WASM and
 drives `Frame(w, h, tick)` directly, so tick and pane size become controls:
 
 ```sh
-scripts/harness.sh examples/nebula        # → http://localhost:8731/?anim=nebula
+scripts/harness.sh examples/nebula        # → http://localhost:8731/view.html?anim=nebula&dev
 scripts/harness.sh examples/nebula 9000   # …on a different port
 ```
 

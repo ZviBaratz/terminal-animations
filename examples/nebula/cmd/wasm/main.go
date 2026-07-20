@@ -25,10 +25,11 @@ func main() {
 		return nebula.Frame(w, h, tick), false
 	}
 
-	// A fixed loop, independent of the pane. Mirrors the unexported `period`
-	// constant in nebula.go — kept in step by TestLoopSeam, and hardcoded here
-	// rather than exported, since the loop length is a harness concern and not
-	// part of what nebula offers a caller.
+	// A fixed loop, independent of the pane. Hardcoded rather than exported, since
+	// the loop length is a harness concern and not part of what nebula offers a
+	// caller — but that leaves this literal a hand-kept copy of the unexported
+	// `period` constant in nebula.go. TestLoopSeam pins that constant, not this
+	// copy, so nothing catches the two drifting apart. Change one, change both.
 	period := func(w, h int) int { return 1080 }
 
 	// renderFrame(w, h, tick, out Int32Array) -> done bool
