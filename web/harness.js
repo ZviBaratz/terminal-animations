@@ -395,6 +395,23 @@ el('poster').addEventListener('error', () => { el('poster').style.display = 'non
 const posterShape = window.innerHeight > window.innerWidth ? '-portrait' : '';
 el('poster').src = `./posters/${anim}${posterShape}.png`;
 
+// Once the live canvas is up the poster will never be shown again, so drop it.
+// An <img> left in the DOM keeps its decoded bitmap resident even at opacity 0 —
+// at 1900x960 RGBA that is 7MB held for nothing, about a third of what this tab
+// costs. Waits for the fade so the swap stays seamless.
+function releasePosterAfterFade() {
+  const poster = el('poster');
+  if (!poster || !poster.src) return;
+  const drop = () => {
+    poster.removeAttribute('src');
+    poster.remove();
+  };
+  poster.addEventListener('transitionend', drop, { once: true });
+  // transitionend does not fire if the element was already transparent, or in a
+  // background tab where the transition never runs; 1s is well past the 0.35s fade.
+  setTimeout(drop, 1000);
+}
+
 // Called from Go once the runtime is up and renderFrame is installed.
 window.onWasmReady = () => {
   el('status').textContent = '';
@@ -405,6 +422,7 @@ window.onWasmReady = () => {
   // deferring this to requestAnimationFrame would strand the poster on screen in a
   // background tab, where rAF is throttled until the tab is focused.
   document.body.classList.add('live');
+  releasePosterAfterFade();
   state.playing = true;
   el('play').textContent = '⏸ pause';
   requestAnimationFrame(loop);
