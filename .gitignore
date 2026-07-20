@@ -16,6 +16,7 @@
 /web/*.wasm
 /web/wasm_exec.js
 /web/animations.json
+/web/posters/
 
 # Python
 __pycache__/

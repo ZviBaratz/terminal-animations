@@ -1,0 +1,10 @@
+{
+  "title": "torus",
+  "blurb": "a tumbling wireframe that removes its own hidden lines",
+  "rung": 5,
+  "rungName": "braille",
+  "accent": "#F078C8",
+  "loop": "seamless · scales with the pane",
+  "note": "accent sampled from the hot pink-white near limb",
+  "posterTick": 150
+}

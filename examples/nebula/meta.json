@@ -1,0 +1,10 @@
+{
+  "title": "nebula",
+  "blurb": "a deep-space field, drifting",
+  "rung": 1,
+  "rungName": "half block",
+  "accent": "#E673D9",
+  "loop": "seamless · 1080 ticks",
+  "note": "accent is nebStops[0.92], the magenta its dense cores glow",
+  "posterTick": 240
+}

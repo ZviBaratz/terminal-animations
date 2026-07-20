@@ -14,8 +14,10 @@ colour.
 | `record-headless.sh` | Headless beauty gate: turns a `frames` dump into a seamless-loop GIF + a truecolor MP4 with only `ffmpeg` + `python3` — no vhs. |
 | `ansi2png.py` | Headless colour gate: rasterizes the `frames` dump into a PNG you can open/Read when there's no TTY. Stdlib Python, no deps. |
 | `harness/` | Copy the directory to `cmd/wasm/`, rename `main.go.tmpl` → `main.go`, and wire `render()` — the same one line as `cmd/preview`. Compiles the animation to WASM for the browser harness. |
-| `harness.sh` | Builds an animation to WASM and serves the browser harness: scrub any tick, drag the pane, compare tick vs tick+period. Needs only `go` + `python3`. |
-| `../web/` | The harness page itself (`index.html`, `harness.js`) at the repo root — static files, no node, no bundler. Shared by every animation; `?anim=<name>` picks the module. |
+| `harness.sh` | Builds an animation to WASM and serves the pages with the dev panel open: scrub any tick, drag the pane, compare tick vs tick+period. Needs only `go` + `python3`. |
+| `posters.sh` | Renders the still frame each viewer shows before its module lands — and the *only* thing shown under `prefers-reduced-motion` or on a phone. Landscape + portrait, via `ansi2png.py`. |
+| `manifest.py` | Writes `web/animations.json` by merging each `examples/<name>/meta.json`. Used by both `harness.sh` and the pages workflow, so the two cannot drift. |
+| `../web/` | The pages themselves — static files, no node, no bundler. `index.html` is the gallery (zero WASM); `view.html` is the viewer, and the authoring harness is that same page with `&dev`. `harness.js` holds the painter, `glyphs.js` the sub-cell tables, `gallery.js` the index. |
 
 ## Inner loop (fast, no extra tools)
 
@@ -54,7 +56,8 @@ scripts/harness.sh examples/nebula 9000   # …on a different port
 | tick slider, `step`, `←`/`→` | What does frame N actually look like? (no rebuild) |
 | `w`/`h`, `fit to window` | Does it reflow across the resolution ladder? |
 | `compare` + `Δ` | Is the loop seamless? Set Δ = period; the panes must be identical. |
-| `ms/frame` readout | Is `Frame` itself fast enough, separate from paint cost? |
+| `render / paint` readout | Which side costs what? `render` is the Go call, `paint` is the canvas — they fail differently, so a single combined number cannot tell you which one moved. |
+| `⚠ N glyphs via font` | Are any cells falling off the sub-cell model? Non-zero means those cells neither match the PNG export nor stay on the fast path. It should always be zero. |
 
 The animation needs a `cmd/wasm` entrypoint — copy `harness/` as above. This is
 a *looking* tool, not a gate: `record-headless.sh` still owns the artifact, and
@@ -62,17 +65,43 @@ a *looking* tool, not a gate: `record-headless.sh` still owns the artifact, and
 backwards is only meaningful for a pure `Frame(w, h, tick)` animation; a
 stateful one can only be replayed forward.
 
-Building more than one animation writes `web/animations.json`, which turns on the
-page's animation picker; with a single animation the picker stays hidden.
+`harness.sh` lands you on `view.html?anim=<name>&dev` — the visitor's page with the
+dev panel open. `~` toggles the panel, `esc` goes back to the gallery. There is
+only one painter: what you tune here is what a visitor sees, to the pixel.
+
+Posters are not rendered by default, since each costs a full preview run and the
+viewer treats a missing one as "start on black". `POSTERS=1 scripts/harness.sh …`
+when you want to check the still.
+
+### Checking the page against the PNG export
+
+The page claims to match `ansi2png.py` — same sub-cell model, so a block or
+braille frame rasterizes identically. That claim is checkable, and worth checking
+whenever the painter changes:
+
+```sh
+cd examples/torus
+go run ./cmd/preview frames 1 1 100 28 | ../../scripts/ansi2png.py --cw 6 --ch 12 > /tmp/t.png
+```
+
+At `cell=6` the canvas is 600×336 and so is the PNG — the same pixel grid, no
+rescale — so the two should be pixel-identical, and a mismatch is diffable rather
+than a matter of taste. Odd cell sizes are the discriminating case: at even widths
+a correct and an incorrect sub-cell split can look the same.
 
 ### Publishing it
 
 `.github/workflows/pages.yml` builds every `examples/*/cmd/wasm` and publishes
 `web/` to GitHub Pages on push to `main` (PRs build only, so a broken WASM build
 is caught pre-merge without overwriting the live site). The build step is needed
-because `web/` is source-only — the `.wasm` modules, `wasm_exec.js`, and the
-manifest are all gitignored, and `wasm_exec.js` in particular must match the
+because `web/` is source-only — the `.wasm` modules, `wasm_exec.js`, the manifest
+and the posters are all gitignored, and `wasm_exec.js` in particular must match the
 toolchain that built the module.
+
+An animation joins the site by having a `cmd/wasm` entrypoint; the workflow
+discovers it by glob. Add a `meta.json` beside it (title, blurb, ladder `rung`,
+`accent`, `loop`, `posterTick`) and it also gets a proper listing on the index —
+without one it still appears, on rung 1, with no blurb.
 
 One-time repo setup: **Settings → Pages → Source = "GitHub Actions"**.
 

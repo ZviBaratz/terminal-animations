@@ -2,78 +2,118 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>terminal-animations — authoring harness</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>terminal-animations</title>
+<meta name="description" content="A Claude Code plugin for authoring beautiful terminal animations — ASCII/ANSI motion for splash screens, loaders, demos, or delight.">
+<link rel="preload" as="font" type="font/woff2" href="./fonts/departure-mono-subset.woff2" crossorigin>
+<link rel="preload" as="font" type="font/woff2" href="./fonts/jetbrains-mono-regular-subset.woff2" crossorigin>
+<link rel="stylesheet" href="./style.css">
 <style>
-  :root { color-scheme: dark; --bg:#0b0b10; --panel:#14141c; --line:#262633; --fg:#d8d8e4; --dim:#7d7d95; }
-  * { box-sizing: border-box; }
-  body { margin:0; background:var(--bg); color:var(--fg);
-         font:13px ui-monospace, SFMono-Regular, Menlo, monospace; }
-  header { padding:10px 16px; border-bottom:1px solid var(--line); display:flex;
-           align-items:baseline; gap:14px; }
-  h1 { font-size:13px; font-weight:600; margin:0; letter-spacing:.02em; }
-  .meta { color:var(--dim); }
-  .ok { color:#6ee7a8; } .err { color:#ff8080; }
-  #controls { display:flex; flex-wrap:wrap; gap:14px; align-items:center;
-              padding:10px 16px; background:var(--panel); border-bottom:1px solid var(--line); }
-  label { display:flex; align-items:center; gap:6px; color:var(--dim); }
-  input[type=number] { width:62px; }
-  input[type=number], button { background:#1d1d28; color:var(--fg);
-    border:1px solid var(--line); border-radius:4px; padding:4px 8px; font:inherit; }
-  button { cursor:pointer; } button:hover { border-color:#3d3d52; }
-  #tick { width:280px; }
-  main { padding:16px; overflow:auto; }
-  canvas { display:block; image-rendering:pixelated; border:1px solid var(--line); }
-  .pane-label { color:var(--dim); margin:14px 0 6px; }
+  body { max-width: 64rem; margin: 0 auto; padding: 0 22px 88px; }
+
+  /* --- masthead ----------------------------------------------------------- */
+  header { padding: 66px 0 33px; }
+  h1 { margin: 0; font-family: var(--display); font-weight: 400; font-size: 44px;
+       line-height: 1.1; letter-spacing: 0; }
+  .tagline { margin: 11px 0 0; max-width: 46em; color: var(--ink); font-size: 14px; }
+  .install { margin: 22px 0 0; color: var(--dim); font-size: 13px; }
+  .install code { color: var(--ink); }
+
+  /* --- the thesis --------------------------------------------------------- */
+  .thesis { margin: 33px 0 0; padding: 16px 0 0; border-top: 1px solid var(--rule);
+            max-width: 52em; color: var(--dim); font-size: 13px; }
+  .thesis strong { color: var(--ink); font-weight: 400; }
+  .thesis em { color: var(--accent); font-style: normal; }
+
+  /* --- the ladder --------------------------------------------------------- */
+  .section-label { margin: 55px 0 0; font-family: var(--display); font-size: 11px;
+                   color: var(--dim); letter-spacing: .08em; text-transform: uppercase; }
+
+  .rung { border-top: 1px solid var(--rule); padding: 13px 0; }
+  .rung.empty { opacity: .72; }
+
+  .rung-head { display: grid; grid-template-columns: 2.4rem 104px 7rem 1fr;
+                gap: 14px; align-items: center; }
+  .rung-no { font-size: 22px; color: var(--dim); line-height: 1; }
+  .rung.empty .rung-no { color: var(--rule); }
+  .sample { display: block; --sample: var(--ink); }
+  .rung.empty .sample { --sample: var(--dim); }
+  .rung-name { font-family: var(--display); font-size: 11px; color: var(--ink); }
+  .rung-detail { color: var(--dim); font-size: 12px; }
+  .rung-note { margin: 8px 0 0 9.2rem; color: var(--dim); font-size: 12px; max-width: 46em; }
+  .nothing { margin: 8px 0 0 9.2rem; color: var(--dim); font-size: 12px; }
+
+  .anims { list-style: none; margin: 10px 0 0; padding: 0 0 0 9.2rem; }
+  .anims li + li { margin-top: 2px; }
+  .anims a {
+    display: grid; grid-template-columns: 10rem 1fr auto; gap: 14px;
+    align-items: baseline; padding: 7px 10px; margin-left: -10px;
+    color: var(--ink); border-radius: 3px;
+  }
+  .anims a:hover, .anims a:focus-visible {
+    background: #0d0b13; text-decoration: none; outline-offset: -2px;
+  }
+  .anim-title { font-size: 22px; color: var(--accent); line-height: 1; }
+  .anim-blurb { color: var(--ink); font-size: 13px; }
+  .anim-loop { color: var(--dim); font-size: 12px; white-space: nowrap; }
+
+  footer { margin: 66px 0 0; padding-top: 16px; border-top: 1px solid var(--rule);
+           color: var(--dim); font-size: 12px; display: flex; gap: 22px; flex-wrap: wrap; }
+
+  @media (max-width: 760px) {
+    h1 { font-size: 33px; }
+    .rung-note, .nothing, .anims { margin-left: 0; padding-left: 0; }
+    .anims a { grid-template-columns: 1fr; gap: 2px; }
+    .anim-loop { white-space: normal; }
+
+    /* The four-column rung header cannot survive a phone: the detail column ends
+       up ~9rem wide and runs off the edge. Stack it, keeping the number and the
+       sample on one line since they read as a pair. */
+    .rung-head {
+      grid-template-columns: 2.4rem 1fr;
+      grid-template-areas: 'no sample' 'name name' 'detail detail';
+      row-gap: 6px;
+    }
+    .rung-no { grid-area: no; }
+    .sample { grid-area: sample; }
+    .rung-name { grid-area: name; }
+    .rung-detail { grid-area: detail; }
+  }
 </style>
 </head>
 <body>
 
 <header>
-  <h1>terminal-animations · <span id="anim-name">…</span></h1>
-  <!-- Populated from animations.json when present; hidden otherwise, so a local
-       single-animation run doesn't show an empty dropdown. -->
-  <select id="anim-picker" hidden aria-label="animation"></select>
-  <span class="meta">status: <span id="status">loading wasm…</span></span>
-  <span class="meta">pane: <span id="dims">—</span></span>
-  <span class="meta"><span id="perf">—</span></span>
-  <span class="meta" id="loop-note"></span>
-  <span class="err" id="deferred"></span>
+  <h1>terminal-animations</h1>
+  <p class="tagline">
+    A Claude Code plugin for authoring beautiful terminal animations — ASCII/ANSI
+    motion for splash screens, loaders, demos, or just delight.
+  </p>
+  <p class="install">
+    <code>/plugin marketplace add ZviBaratz/terminal-animations</code><br>
+    <code>/plugin install terminal-animations@zvibaratz</code>
+  </p>
+
+  <p class="thesis">
+    The default answer to “make a cool terminal animation” is one effect, in flat
+    1×1 ASCII glyphs, with functional colour — competent and forgettable. A
+    <em>mesmerizing</em> one is composed: a deliberate fidelity tier, a designed
+    palette, layered effects, <strong>tuned by eye</strong>. The plugin exists to
+    get the second thing, every time.
+  </p>
 </header>
 
-<div id="controls">
-  <label>w <input type="number" id="width" value="100" min="1" max="400"></label>
-  <label>h <input type="number" id="height" value="30" min="1" max="200"></label>
-  <label>cell <input type="number" id="cell" value="8" min="2" max="32"></label>
-  <button id="fit">fit to window</button>
-
-  <button id="play">▶ play</button>
-  <button id="step">step</button>
-  <label>fps <input type="number" id="fps" value="30" min="1" max="120"></label>
-  <!-- max and Δ are both filled in from the module's animPeriod(w, h) once it is
-       up: a constant for nebula, 0 for free-running plasma, and pane-dependent
-       for torus, where they re-derive on every resize. -->
-  <label>tick <input type="range" id="tick" value="0" min="0" max="1"></label>
-  <span class="meta" id="tick-label">0</span>
-
-  <!-- Set Δ = the period and the two panes must be pixel-identical, which is
-       TestLoopSeam made visible. Disabled for a free-running animation, where no
-       Δ can ever match. -->
-  <label><input type="checkbox" id="compare-toggle"> compare</label>
-  <label>+Δ <input type="number" id="offset" value="0"></label>
-</div>
-
-<main>
-  <canvas id="main-canvas"></canvas>
-  <div id="compare-wrap" style="display:none">
-    <div class="pane-label">tick + Δ — identical to the pane above means the loop is seamless</div>
-    <canvas id="compare-canvas"></canvas>
-  </div>
+<p class="section-label">the resolution ladder</p>
+<main id="ladder">
+  <p class="nothing">loading…</p>
 </main>
 
-<script src="wasm_exec.js"></script>
-<!-- A module, so it can import the sub-cell tables from glyphs.js. wasm_exec.js
-     stays a classic script: it and the Go runtime communicate through globals
-     (Go, renderFrame), which a module can read but not export. -->
-<script type="module" src="harness.js"></script>
+<footer>
+  <a href="https://github.com/ZviBaratz/terminal-animations">source on GitHub</a>
+  <span>MIT</span>
+  <span>every sample above is drawn by the same painter the animations use</span>
+</footer>
+
+<script type="module" src="gallery.js"></script>
 </body>
 </html>

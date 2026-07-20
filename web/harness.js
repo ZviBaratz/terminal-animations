@@ -162,6 +162,13 @@ class Pane {
   }
 }
 
+// --- the viewer -------------------------------------------------------------
+//
+// One page serves both audiences. A visitor gets the animation full-bleed with
+// chrome that fades; `~` (or ?dev) slides the authoring panel up over the same
+// canvas, driven by the same Pane above. There is deliberately no second painter:
+// what gets tuned here is what a visitor sees, down to the pixel.
+
 const el = (id) => document.getElementById(id);
 const main = new Pane(el('main-canvas'));
 const compare = new Pane(el('compare-canvas'));
@@ -196,7 +203,7 @@ function applyPeriod() {
     // Free-running. Say so, rather than leaving a Δ that can never match.
     toggle.checked = false;
     toggle.disabled = offset.disabled = true;
-    el('loop-note').textContent = 'free-running — never repeats, so no Δ matches';
+    el('loop-note').textContent = 'free-running, never repeats';
   } else {
     el('loop-note').textContent = '';
   }
@@ -260,15 +267,67 @@ function loop(now) {
   if (paint()) stop();
 }
 
-// Fit the pane to the viewport at the current cell size — the fastest way to
-// check that an animation actually reflows across the resolution ladder.
+const availableHeight = () => window.innerHeight -
+  (document.body.classList.contains('dev') ? el('dev').getBoundingClientRect().height : 0);
+
+// Fill the viewport at the current cell size — the authoring check that an
+// animation reflows across the resolution ladder, unchanged.
 function fitToWindow() {
-  const pad = 48;
-  el('width').value = Math.max(20, Math.floor((window.innerWidth - pad) / state.cell));
-  el('height').value = Math.max(8, Math.floor((window.innerHeight - 220) / (state.cell * 2)));
+  el('width').value = Math.max(20, Math.floor(window.innerWidth / state.cell));
+  el('height').value = Math.max(8, Math.floor(availableHeight() / (state.cell * 2)));
   readControls();
   paint();
 }
+
+// The visitor's view targets a column count rather than a cell size, which keeps
+// both the density and the frame budget stable across screens.
+//
+// Measured on nebula at 1920×960, render+paint per frame:
+//
+//   cell  8 → 240×60 (14400 cells)  31.4 ms → 32 fps ceiling
+//   cell 10 → 192×48  (9216 cells)  22.8 ms → 44 fps
+//   cell 12 → 160×40  (6400 cells)  15.1 ms → 66 fps
+//
+// Cost tracks cell count almost linearly, so filling a large screen at cell 8
+// leaves no headroom at all for a 30 fps target — on any machine slower than this
+// one it drops frames. ~190 columns is both the wider end of a real terminal and
+// comfortably inside budget.
+const TARGET_COLS = 190;
+
+function fitViewport() {
+  state.cell = Math.max(6, Math.min(16, Math.round(window.innerWidth / TARGET_COLS)));
+  el('cell').value = state.cell;
+  fitToWindow();
+}
+
+// --- chrome ----------------------------------------------------------------
+
+let idleTimer = 0;
+function wake() {
+  document.body.classList.remove('idle');
+  clearTimeout(idleTimer);
+  // Only hide the chrome while something is actually moving; on a paused frame
+  // it is the only thing telling you what you are looking at.
+  idleTimer = setTimeout(() => {
+    if (state.playing && !document.body.classList.contains('dev')) {
+      document.body.classList.add('idle');
+    }
+  }, 4000);
+}
+for (const ev of ['pointermove', 'keydown', 'pointerdown']) {
+  window.addEventListener(ev, wake, { passive: true });
+}
+
+function setDev(on) {
+  document.body.classList.toggle('dev', on);
+  const url = new URL(location.href);
+  if (on) url.searchParams.set('dev', ''); else url.searchParams.delete('dev');
+  history.replaceState(null, '', url);
+  wake();
+  fitToWindow();
+}
+
+// --- controls --------------------------------------------------------------
 
 for (const id of ['width', 'height', 'fps', 'cell', 'compare-toggle']) {
   el(id).addEventListener('input', () => { readControls(); paint(); });
@@ -289,9 +348,11 @@ el('tick').addEventListener('input', (e) => {
 el('play').addEventListener('click', () => {
   state.playing = !state.playing;
   el('play').textContent = state.playing ? '⏸ pause' : '▶ play';
+  wake();
 });
 el('fit').addEventListener('click', fitToWindow);
 el('step').addEventListener('click', () => { state.tick++; paint(); });
+
 // Keep the slider in step with keyboard scrubbing — otherwise the thumb sits
 // wherever it last was and stops telling you where in the loop you are.
 function seek(tick) {
@@ -300,33 +361,72 @@ function seek(tick) {
   paint();
 }
 window.addEventListener('keydown', (e) => {
+  if (e.target.matches('input, select, button')) return;
+  if (e.key === '`' || e.key === '~') { e.preventDefault(); setDev(!document.body.classList.contains('dev')); }
+  if (e.key === 'Escape') location.href = './index.html';
   if (e.key === ' ') { e.preventDefault(); el('play').click(); }
   if (e.key === 'ArrowRight') seek(state.tick + 1);
   if (e.key === 'ArrowLeft') seek(state.tick - 1);
 });
 
-// Called from Go once the runtime is up and renderFrame is installed.
-window.onWasmReady = () => {
-  el('status').textContent = 'ready';
-  el('status').className = 'ok';
-  readControls();
-  paint();
-  requestAnimationFrame(loop);
-};
+let resizeTimer = 0;
+window.addEventListener('resize', () => {
+  clearTimeout(resizeTimer);
+  // In dev the cell size is the author's choice, so only reflow the pane; on the
+  // visitor view re-derive the cell so density holds across window sizes.
+  resizeTimer = setTimeout(
+    () => (document.body.classList.contains('dev') ? fitToWindow() : fitViewport()), 120);
+});
 
-// Which animation to load: ?anim=<name> resolves to <name>.wasm, so one harness
-// serves every animation built by scripts/harness.sh.
+// --- boot -------------------------------------------------------------------
+
 const anim = new URLSearchParams(location.search).get('anim') || 'nebula';
 document.title = `terminal-animations — ${anim}`;
 el('anim-name').textContent = anim;
 
-// animations.json is written by scripts/harness.sh and by the pages workflow.
-// It's what lets a hosted visitor discover the other animations; when it's
-// absent (a bare `python3 -m http.server` in web/) the picker just stays hidden.
+// Paint the still immediately. A missing poster is not an error — scripts/harness.sh
+// does not render them by default, so a local authoring run simply starts on black.
+// Two shapes exist because the live canvas reflows rather than scales; pick the
+// one whose aspect matches this viewport, so the hand-off to the live canvas is a
+// change of resolution rather than of composition.
+let posterReady = false;
+el('poster').addEventListener('load', () => { posterReady = true; });
+el('poster').addEventListener('error', () => { el('poster').style.display = 'none'; });
+const posterShape = window.innerHeight > window.innerWidth ? '-portrait' : '';
+el('poster').src = `./posters/${anim}${posterShape}.png`;
+
+// Called from Go once the runtime is up and renderFrame is installed.
+window.onWasmReady = () => {
+  el('status').textContent = '';
+  fitViewport();
+
+  // Cross-fade off the poster. fitViewport() paints synchronously just above, so
+  // the canvas already holds a real frame and there is nothing to wait for —
+  // deferring this to requestAnimationFrame would strand the poster on screen in a
+  // background tab, where rAF is throttled until the tab is focused.
+  document.body.classList.add('live');
+  state.playing = true;
+  el('play').textContent = '⏸ pause';
+  requestAnimationFrame(loop);
+  wake();
+};
+
+// animations.json carries per-animation metadata (title, blurb, ladder rung,
+// accent, loop shape), merged at build time from each examples/<name>/meta.json.
+// A bare array of names is still accepted: that is what scripts/harness.sh writes
+// for a local single-animation run, and the page should not need the richer file
+// to work.
 fetch('animations.json')
   .then((r) => (r.ok ? r.json() : Promise.reject()))
-  .then((names) => {
-    if (!Array.isArray(names) || names.length < 2) return;
+  .then((manifest) => {
+    const names = Array.isArray(manifest) ? manifest : Object.keys(manifest);
+    const meta = Array.isArray(manifest) ? {} : (manifest[anim] || {});
+
+    if (meta.accent) document.documentElement.style.setProperty('--accent', meta.accent);
+    if (meta.title) el('anim-name').textContent = meta.title;
+    if (meta.blurb) el('anim-blurb').textContent = meta.blurb;
+    if (meta.rungName) el('anim-rung').textContent = meta.rungName;
+
     const picker = el('anim-picker');
     for (const name of names) {
       const opt = document.createElement('option');
@@ -334,17 +434,49 @@ fetch('animations.json')
       opt.selected = name === anim;
       picker.append(opt);
     }
-    picker.hidden = false;
     picker.addEventListener('change', () => {
       location.search = `?anim=${encodeURIComponent(picker.value)}`;
     });
   })
   .catch(() => {});
 
-const go = new Go();
-WebAssembly.instantiateStreaming(fetch(`${anim}.wasm`), go.importObject)
-  .then((res) => go.run(res.instance))
-  .catch((err) => {
-    el('status').textContent = `failed to load ${anim}.wasm: ${err.message}`;
-    el('status').className = 'err';
-  });
+function loadModule() {
+  document.body.classList.remove('gated');
+  el('status').textContent = 'loading…';
+  const go = new Go();
+  WebAssembly.instantiateStreaming(fetch(`${anim}.wasm`), go.importObject)
+    .then((res) => go.run(res.instance))
+    .catch((err) => {
+      el('status').textContent = `failed to load ${anim}.wasm: ${err.message}`;
+      el('status').className = 'err';
+    });
+}
+
+// Two reasons to hold the module back, both of which leave the poster on screen
+// so the animation is still *seen* — just not moving.
+//
+//   reduced motion — a public page that autoplays full-screen motion has to take
+//     this seriously. We do not merely pause: the ~2MB module is never fetched.
+//   small screen   — 2MB unasked on a phone, possibly on cellular, is rude. The
+//     poster is 60-90KB and shows the same frame.
+//
+// Either way playing is an explicit, per-visit choice.
+const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+const smallScreen = window.matchMedia('(max-width: 760px), (pointer: coarse)');
+el('play-anyway').addEventListener('click', loadModule);
+
+if (reduceMotion.matches) {
+  document.body.classList.add('gated');
+  el('status').textContent = 'still frame — motion paused';
+} else if (smallScreen.matches) {
+  document.body.classList.add('gated');
+  el('status').textContent = 'still frame';
+  el('gate-title').textContent = 'tap to play';
+  el('gate-body').textContent =
+    'This is a still frame. Playing it downloads a 2 MB animation module.';
+  el('play-anyway').textContent = 'play it';
+} else {
+  loadModule();
+}
+
+if (new URLSearchParams(location.search).has('dev')) setDev(true);
