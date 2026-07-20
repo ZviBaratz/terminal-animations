@@ -18,6 +18,20 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   and encodes a 256-colour seamless-loop GIF (motion-stable Bayer dither) plus a truecolor
   H.264 MP4, using only `ffmpeg` + `python3`. Pairs with the scaffold's strided `frames`
   mode: make `frames × stride` span one loop `period` and the GIF loops with no ping-pong.
+- **`scripts/harness/` + `scripts/harness.sh`** — a browser harness for the *looking* loop.
+  It compiles an animation to WASM and drives `Frame(w, h, tick)` from a static page, so tick
+  and pane size become controls: scrub to any frame with no rebuild, drag the pane to check the
+  resolution ladder without resizing a real terminal, and put tick beside tick+`period` to watch
+  the loop seam while you tune rather than as an assertion that goes red afterwards. Needs only
+  `go` + `python3` — no node, no bundler, no terminal emulator. The frame subset is one
+  `ESC[38;2;…;48;2;…m` + glyph per cell, so the page decodes to a packed cell buffer and paints
+  `ImageData` runs directly (marshaling the ~360KB frame string across the JS boundary, or
+  drawing per-cell via the 2D context, both cost far more). `main.go.tmpl` follows the
+  `cmd/preview` scaffold convention — copy the directory, wire `render()`, same two shapes — and
+  `examples/nebula` + `examples/plasma` each ship a `cmd/wasm`. This is a looking tool, not a
+  gate: `record-headless.sh` still owns the artifact and `ansi2png.py` the headless colour check.
+  Build outputs (`/web/*.wasm`, `/web/wasm_exec.js`) are gitignored — `wasm_exec.js` must match
+  the toolchain that built the module, so it is never safe to commit.
 
 ### Changed
 

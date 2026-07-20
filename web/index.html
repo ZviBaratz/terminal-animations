@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>terminal-animations — authoring harness</title>
+<style>
+  :root { color-scheme: dark; --bg:#0b0b10; --panel:#14141c; --line:#262633; --fg:#d8d8e4; --dim:#7d7d95; }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg);
+         font:13px ui-monospace, SFMono-Regular, Menlo, monospace; }
+  header { padding:10px 16px; border-bottom:1px solid var(--line); display:flex;
+           align-items:baseline; gap:14px; }
+  h1 { font-size:13px; font-weight:600; margin:0; letter-spacing:.02em; }
+  .meta { color:var(--dim); }
+  .ok { color:#6ee7a8; } .err { color:#ff8080; }
+  #controls { display:flex; flex-wrap:wrap; gap:14px; align-items:center;
+              padding:10px 16px; background:var(--panel); border-bottom:1px solid var(--line); }
+  label { display:flex; align-items:center; gap:6px; color:var(--dim); }
+  input[type=number] { width:62px; }
+  input[type=number], button { background:#1d1d28; color:var(--fg);
+    border:1px solid var(--line); border-radius:4px; padding:4px 8px; font:inherit; }
+  button { cursor:pointer; } button:hover { border-color:#3d3d52; }
+  #tick { width:280px; }
+  main { padding:16px; overflow:auto; }
+  canvas { display:block; image-rendering:pixelated; border:1px solid var(--line); }
+  .pane-label { color:var(--dim); margin:14px 0 6px; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>terminal-animations · <span id="anim-name">…</span></h1>
+  <span class="meta">status: <span id="status">loading wasm…</span></span>
+  <span class="meta">pane: <span id="dims">—</span></span>
+  <span class="meta"><span id="perf">—</span></span>
+</header>
+
+<div id="controls">
+  <label>w <input type="number" id="width" value="100" min="1" max="400"></label>
+  <label>h <input type="number" id="height" value="30" min="1" max="200"></label>
+  <label>cell <input type="number" id="cell" value="8" min="2" max="32"></label>
+  <button id="fit">fit to window</button>
+
+  <button id="play">▶ play</button>
+  <button id="step">step</button>
+  <label>fps <input type="number" id="fps" value="30" min="1" max="120"></label>
+  <label>tick <input type="range" id="tick" value="0" min="0" max="1080"></label>
+  <span class="meta" id="tick-label">0</span>
+
+  <!-- Δ defaults to nebula's period (1080): the compare pane should be
+       pixel-identical, which is TestLoopSeam made visible. -->
+  <label><input type="checkbox" id="compare-toggle"> compare</label>
+  <label>+Δ <input type="number" id="offset" value="1080"></label>
+</div>
+
+<main>
+  <canvas id="main-canvas"></canvas>
+  <div id="compare-wrap" style="display:none">
+    <div class="pane-label">tick + Δ — identical to the pane above means the loop is seamless</div>
+    <canvas id="compare-canvas"></canvas>
+  </div>
+</main>
+
+<script src="wasm_exec.js"></script>
+<script src="harness.js"></script>
+</body>
+</html>
