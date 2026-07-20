@@ -1,7 +1,7 @@
 {
   "name": "terminal-animations",
   "description": "Author beautiful terminal ASCII/ANSI animations — an expert skill that interrogates the vision, composes technique and style past the conventional default, and ships it tested and visually tuned with a preview/GIF harness.",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "author": {
     "name": "Zvi Baratz",
     "email": "z.baratz@gmail.com"

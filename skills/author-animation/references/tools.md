@@ -80,5 +80,7 @@ go run ./cmd/preview frames 5 | ${CLAUDE_PLUGIN_ROOT}/scripts/ansi2png.py > /tmp
 `${CLAUDE_PLUGIN_ROOT}/scripts/ansi2png.py` (stdlib-only) turns the truecolor `frames` dump
 into an image — the headless stand-in for the GIF gate. You still judge the colour by eye,
 never from the formula. It resolves half-block, quadrant and full-block cells into their
-sub-cell fg/bg regions, but **collapses sextant/octant/braille cells to their foreground** —
-those finer tiers only read faithfully on a real terminal or the GIF gate.
+2×2 sub-cell fg/bg regions and **braille (U+2800–28FF) into its 2×4 dot grid** — a lit dot
+takes the foreground, an unlit dot the background — so braille line art reads as line art
+rather than a field of solid rectangles. It still **collapses sextant and octant cells to
+their foreground**; those two tiers only read faithfully on a real terminal or the GIF gate.

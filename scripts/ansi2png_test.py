@@ -102,6 +102,72 @@ def main():
     assert pixel(rowsl, 0, 0) == (0, 255, 0), pixel(rowsl, 0, 0)            # left col = fg green
     assert pixel(rowsl, cw // 2, 0) == (0, 0, 0), pixel(rowsl, cw // 2, 0)  # right col = bg black
 
+    # Braille resolves into its 2x4 dot grid — a lit dot is fg, an unlit dot is bg
+    # (it used to collapse the whole cell to a solid fg block). U+2895 is DOTS-1358:
+    #
+    #     # .      (0,0) lit   (0,1) off
+    #     . #      (1,0) off   (1,1) lit    <- dot5, the column-major right half
+    #     # .      (2,0) lit   (2,1) off
+    #     . #      (3,0) off   (3,1) lit    <- dot8, the irregular appended bottom row
+    #
+    # One lit and one unlit dot per row, alternating columns: a transposed, flipped or
+    # naively raster-ordered bit mapping all fail here.
+    FG, BG = (255, 0, 0), (0, 0, 255)
+    sgr = "\x1b[38;2;255;0;0m\x1b[48;2;0;0;255m"
+    br = "--- frame 0 ---\n" + sgr + "⢕\x1b[0m\n"
+    _, _, rowsbr = decode_png(run(br.encode(), env))
+    lit = {(0, 0), (1, 1), (2, 0), (3, 1)}
+    for r_ in range(4):
+        for c_ in range(2):
+            x, y = c_ * cw // 2, r_ * ch // 4      # same k*total//n edge as the renderer
+            want = FG if (r_, c_) in lit else BG
+            assert pixel(rowsbr, x, y) == want, ((r_, c_), pixel(rowsbr, x, y))
+
+    # The braille blank U+2800 is real negative space, not a block: every pixel is bg.
+    # (It is `isprintable()`, so it used to fall through to a solid *foreground* cell.)
+    blank = "--- frame 0 ---\n" + sgr + "⠀\x1b[0m\n"
+    _, _, rowsbl = decode_png(run(blank.encode(), env))
+    assert all(pixel(rowsbl, x, y) == BG
+               for x in range(cw) for y in range(ch)), "U+2800 is not blank"
+
+    # …and U+28FF (all eight dots) is a full fg block.
+    solid = "--- frame 0 ---\n" + sgr + "⣿\x1b[0m\n"
+    _, _, rowsbf = decode_png(run(solid.encode(), env))
+    assert all(pixel(rowsbf, x, y) == FG
+               for x in range(cw) for y in range(ch)), "U+28FF is not solid"
+
+    # The dot grid tiles an ODD cell exactly — no gap, no overlap, on BOTH axes. At the
+    # 7x14 default the splits are uneven (cols 3+4, rows 3+4+3+4), which is where an
+    # off-by-one hides. U+2847 is dots 1,2,3,7 = the whole left column.
+    lcol = "--- frame 0 ---\n" + sgr + "⡇\x1b[0m\n"
+    _, _, rowslc = decode_png(run(lcol.encode(), None, ["--cw", "7", "--ch", "14"]))
+    for y in range(14):
+        assert ([pixel(rowslc, x, y) for x in range(7)]
+                == [FG] * 3 + [BG] * 4), (y, [pixel(rowslc, x, y) for x in range(7)])
+
+    # …and the row split, which the left-column glyph above cannot see. Each of these
+    # lights exactly one dot row (both columns), so the four fg spans must partition the
+    # 14px cell with no gap and no overlap: 0-2, 3-6, 7-9, 10-13. A floor-division
+    # split (14//4 = 3px rows + a fat last row) gets these wrong and is caught here.
+    spans = []
+    for glyph in ("⠉", "⠒", "⠤", "⣀"):          # dot rows 0, 1, 2, 3
+        one = "--- frame 0 ---\n" + sgr + glyph + "\x1b[0m\n"
+        _, _, rws = decode_png(run(one.encode(), None, ["--cw", "7", "--ch", "14"]))
+        for y in range(14):                       # each row is uniform across the cell
+            line = [pixel(rws, x, y) for x in range(7)]
+            assert len(set(line)) == 1, (glyph, y, line)
+        spans.append([y for y in range(14) if pixel(rws, 0, y) == FG])
+    assert spans == [[0, 1, 2], [3, 4, 5, 6], [7, 8, 9], [10, 11, 12, 13]], spans
+
+    # Regression guard for the now-shared sub-cell path: the 2x2 quadrant split must be
+    # unchanged at an odd cell width — ▌ is still 3 fg columns then 4 bg, matching the
+    # old hard-coded `sx < CW // 2`. Every other case here runs at an even cw=4, which
+    # would not catch a one-pixel shift at the 7px default.
+    odd = "--- frame 0 ---\n\x1b[38;2;0;255;0m\x1b[48;2;0;0;0m▌\x1b[0m\n"
+    _, _, rowsod = decode_png(run(odd.encode(), None, ["--cw", "7", "--ch", "14"]))
+    assert ([pixel(rowsod, x, 0) for x in range(7)]
+            == [(0, 255, 0)] * 3 + [(0, 0, 0)] * 4), [pixel(rowsod, x, 0) for x in range(7)]
+
     # --cw/--ch flags set the cell size, and a flag overrides the env var — the
     # pipe-safe path (env before the `|` reaches the producer, not ansi2png).
     wf, hf, _ = decode_png(run(frame.encode(), None, ["--cw", "5", "--ch", "9"]))
