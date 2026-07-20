@@ -73,13 +73,18 @@ print(m.get('$1') or m.get('posterTick', 0))" 2>/dev/null || echo 0
 
   render() { # <suffix> <cols> <rows> <cw> <ch> <tick>
     local out="$OUT/$anim$1.png"
-    local tick="$6"
+    local tick="${6:-0}"
     # cmd/preview has no start-tick flag, so ask for two frames a stride apart and
-    # keep the second. At tick 0 the stride is ignored and one frame comes back.
-    (cd "$src" && go run ./cmd/preview frames 2 "${tick:-0}" "$2" "$3") \
-      | awk '/^--- frame /{n++} n>=2 || NR==0' | tail -n +2 \
-      | python3 "$ROOT/scripts/ansi2png.py" --cw "$4" --ch "$5" > "$out"
-    echo "  $anim$1  tick ${tick:-0}  $2x$3 cells  $(( $2 * $4 ))x$(( $3 * $5 )) px  $(( $(wc -c < "$out") / 1024 ))KB"
+    # keep the second. Tick 0 has to be its own call: cmd/preview only accepts a
+    # stride > 0, so `frames 2 0` silently leaves the stride at 1 and would hand
+    # back tick 1. Asking for a single frame lands on tick 0 by construction.
+    if (( tick == 0 )); then
+      (cd "$src" && go run ./cmd/preview frames 1 1 "$2" "$3") | tail -n +2
+    else
+      (cd "$src" && go run ./cmd/preview frames 2 "$tick" "$2" "$3") \
+        | awk '/^--- frame /{n++} n>=2' | tail -n +2
+    fi | python3 "$ROOT/scripts/ansi2png.py" --cw "$4" --ch "$5" > "$out"
+    echo "  $anim$1  tick $tick  $2x$3 cells  $(( $2 * $4 ))x$(( $3 * $5 )) px  $(( $(wc -c < "$out") / 1024 ))KB"
   }
   render ""          "$LANDSCAPE_COLS" "$LANDSCAPE_ROWS" "$LANDSCAPE_CW" "$LANDSCAPE_CH" "$tick_landscape"
   render "-portrait" "$PORTRAIT_COLS"  "$PORTRAIT_ROWS"  "$PORTRAIT_CW"  "$PORTRAIT_CH"  "$tick_portrait"
