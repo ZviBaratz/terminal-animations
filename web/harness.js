@@ -300,6 +300,15 @@ function fitViewport() {
   fitToWindow();
 }
 
+// The one place that decides which of the two fits applies. In dev the cell size
+// is the author's choice, so only reflow the pane; on the visitor view re-derive
+// the cell so density holds across window sizes. Every caller goes through here —
+// a second copy of this branch is how the wasm-ready path came to overwrite the
+// author's cell the moment the module landed.
+function fitPane() {
+  if (document.body.classList.contains('dev')) fitToWindow(); else fitViewport();
+}
+
 // --- chrome ----------------------------------------------------------------
 
 let idleTimer = 0;
@@ -372,10 +381,7 @@ window.addEventListener('keydown', (e) => {
 let resizeTimer = 0;
 window.addEventListener('resize', () => {
   clearTimeout(resizeTimer);
-  // In dev the cell size is the author's choice, so only reflow the pane; on the
-  // visitor view re-derive the cell so density holds across window sizes.
-  resizeTimer = setTimeout(
-    () => (document.body.classList.contains('dev') ? fitToWindow() : fitViewport()), 120);
+  resizeTimer = setTimeout(fitPane, 120);
 });
 
 // --- boot -------------------------------------------------------------------
@@ -415,9 +421,9 @@ function releasePosterAfterFade() {
 // Called from Go once the runtime is up and renderFrame is installed.
 window.onWasmReady = () => {
   el('status').textContent = '';
-  fitViewport();
+  fitPane();
 
-  // Cross-fade off the poster. fitViewport() paints synchronously just above, so
+  // Cross-fade off the poster. fitPane() paints synchronously just above, so
   // the canvas already holds a real frame and there is nothing to wait for —
   // deferring this to requestAnimationFrame would strand the poster on screen in a
   // background tab, where rAF is throttled until the tab is focused.
@@ -430,10 +436,11 @@ window.onWasmReady = () => {
 };
 
 // animations.json carries per-animation metadata (title, blurb, ladder rung,
-// accent, loop shape), merged at build time from each examples/<name>/meta.json.
-// A bare array of names is still accepted: that is what scripts/harness.sh writes
-// for a local single-animation run, and the page should not need the richer file
-// to work.
+// accent, loop shape), merged at build time from each examples/<name>/meta.json
+// by scripts/manifest.py, which both scripts/harness.sh and pages.yml call.
+// A bare array of names is still accepted because that is what harness.sh wrote
+// before manifest.py existed, and a stale animations.json may still be cached in
+// a browser or sitting in someone's local build directory.
 fetch('animations.json')
   .then((r) => (r.ok ? r.json() : Promise.reject()))
   .then((manifest) => {
@@ -444,6 +451,12 @@ fetch('animations.json')
     if (meta.title) el('anim-name').textContent = meta.title;
     if (meta.blurb) el('anim-blurb').textContent = meta.blurb;
     if (meta.rungName) el('anim-rung').textContent = meta.rungName;
+
+    // A picker offering the one animation already on screen is a control that
+    // cannot do anything, so it stays hidden below two. A local single-animation
+    // build (scripts/harness.sh examples/nebula) is the common case for this.
+    if (names.length < 2) return;
+    el('anim-picker-row').hidden = false;
 
     const picker = el('anim-picker');
     for (const name of names) {

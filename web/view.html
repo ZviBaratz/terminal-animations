@@ -80,6 +80,9 @@
   #dev .row { display: flex; flex-wrap: wrap; gap: 14px; align-items: center; }
   #dev .row + .row { margin-top: 8px; }
   #dev label { display: flex; align-items: center; gap: 6px; color: var(--dim); }
+  /* A `display` rule on an element outranks the UA stylesheet's [hidden] rule, so
+     the panel's own layout would otherwise keep [hidden] controls on screen. */
+  #dev [hidden] { display: none; }
   #dev input[type=number], #dev button, #dev select {
     background: #14121c; color: var(--ink);
     border: 1px solid var(--rule); border-radius: 3px;
@@ -170,7 +173,8 @@
 
 <aside id="dev">
   <div class="row">
-    <label>animation <select id="anim-picker" aria-label="animation"></select></label>
+    <!-- Revealed only once the manifest shows a second animation to switch to. -->
+    <label id="anim-picker-row" hidden>animation <select id="anim-picker" aria-label="animation"></select></label>
     <label>w <input type="number" id="width" value="100" min="1" max="400"></label>
     <label>h <input type="number" id="height" value="30" min="1" max="200"></label>
     <label>cell <input type="number" id="cell" value="8" min="2" max="32"></label>
