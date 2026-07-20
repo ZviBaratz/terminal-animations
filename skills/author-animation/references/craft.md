@@ -84,6 +84,33 @@ must close on itself (a splash, an idle screen), and pin it with a seam test
 (`Frame(…,0) == Frame(…,period)`): it is the one loop guarantee a same-machine golden
 can't give you.
 
+### The seam closing does not mean `period` is the *true* period
+
+A seam test proves the loop closes. It cannot tell you the loop closed **early** — that
+your advertised `period` is two or three times the real one, so the "24-second loop" is a
+12-second one played twice and the recording wastes half its frames on a repeat.
+
+This bites hard whenever a **symmetric subject** is rotated by integer harmonics. Every
+π-rotation about a coordinate axis is a symmetry of a torus, a sphere, a cube, a regular
+polyhedron — so at `tick = period/2` the accumulated rotation lands back on a symmetry of
+the object and the frame is *identical*. Verified for a torus at harmonic ratios 1:2, 1:3,
+2:3 and 3:5: all of them secretly repeat at `period/2`. A fixed **oblique pre-tilt** (an
+angle that is not a multiple of π/2, applied before the animated rotation) breaks the
+degeneracy; see `examples/torus`.
+
+So add a **minimal-period** test alongside the seam test — assert `Frame(…,0)` differs
+from `Frame(…, period/2)`, `period/3`, `period/4`. Two subtleties decide whether it has
+any teeth at all:
+
+- **Compare the glyph grid with SGR stripped, not the whole frame.** If any *other* layer
+  varies with θ — a background wash, a palette drift — a whole-frame comparison differs on
+  that layer alone and passes no matter what the subject does.
+- **Assert a large fraction of cells differ, not mere inequality.** `sin(π)` is `1.22e-16`,
+  not `0`, so a perfectly degenerate half-period render still differs in a handful of dots.
+  Measured on the torus: **3.8%** of lit cells differ in the degenerate case vs **96%** in
+  the healthy one — so a 25% floor separates them with room to spare, and exact `!=` does
+  not separate them at all.
+
 ## Tune by looking, not by arithmetic
 
 The single most repeated lesson. You cannot *compute* the right sharpness, speed,

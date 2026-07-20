@@ -102,8 +102,10 @@ go run ./cmd/preview frames 5 | ./scripts/ansi2png.py > /tmp/anim.png
 `ansi2png.py` (stdlib Python, no deps) turns the truecolor `frames` dump into an
 image — the headless stand-in for the GIF gate. You still judge the colour by eye,
 never from the formula. It resolves half-block, quadrant and full-block cells into their
-2×2 sub-cell regions and braille into its 2×4 dot grid; sextant and octant still collapse
-to their foreground. Cell size: `--cw` / `--ch` flags (else the `ANSI2PNG_CW` /
+2×2 sub-cell regions and braille into its 2×4 dot grid; a sextant cell collapses to its
+foreground, and an octant cell is dropped entirely — on a pre-Unicode-16 `unicodedata` the
+parse loop emits no cell, shearing every row that contains one.
+Cell size: `--cw` / `--ch` flags (else the `ANSI2PNG_CW` /
 `ANSI2PNG_CH` env vars, else 7×14 — use `--ch 4` or more so all four braille dot rows
 get a pixel):
 
@@ -133,3 +135,23 @@ the scaffold's strided `frames N [stride] [w h]` mode is for. A full-motion fiel
 compresses poorly as a GIF, so the MP4 is typically ~20–30× smaller at higher fidelity and
 is the better "optimal" artifact. `scripts/record-headless.sh --help` lists the fps / width
 / cell-size knobs (and `--no-gif` / `--no-mp4`).
+
+**Detail tiers must record 1:1 — match `pane × cell-size` to `--width`.** `--width`
+(default 640) rescales the rasterized frames, which is fine for a *field*: a nebula is a
+smooth colour ramp and survives resampling. It is destructive for **line art on a sub-cell
+tier**, where the artwork *is* the dot pattern — downscaling averages individual dots into
+the background and a crisp wireframe arrives as a grey haze. Size the recording so no
+rescale happens at all:
+
+```sh
+# braille torus: 100 cols × 6px = 600px wide, so --width 600 means NO rescale.
+# 120 frames × stride 6 = 720 = Period(100, 28) — exactly one loop at *this* pane.
+# The torus scales its loop length with the pane, so re-derive this if you resize.
+scripts/record-headless.sh -o out/torus --width 600 --cw 6 --ch 12 -- \
+  go run ./cmd/preview frames 120 6 100 28
+```
+
+Note the pane is *deliberately small*. Recording a braille piece at a field's 220×56 and
+letting ffmpeg scale to 640 shrinks each dot below one pixel. The lever that makes a field
+sharper — fill the terminal — inverts for detail tiers: **choose the pane so the dots land
+on whole pixels**, then match `--width` to it.

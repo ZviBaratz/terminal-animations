@@ -18,8 +18,12 @@ background — so real half-block raster and braille line art both read correctl
 fill their sub-rectangle rather than being drawn inset, so a cell's eight dots tile it
 with no gaps; that is the right approximation at these sizes (use --ch >= 4 so all four
 dot rows get a pixel). Sextant (U+1FB00–1FB3B) and octant (U+1CD00–1CDE5) carry finer
-detail than this coarse rasterizer resolves — they still collapse to their foreground;
-judge those two tiers on a real terminal or the GIF gate.
+detail than this coarse rasterizer resolves, and they fail differently: a sextant cell
+collapses to its foreground, while an octant cell is dropped *entirely*. Octants need
+Unicode 16 (Sept 2024), so on a Python whose `unicodedata` is older (3.10 ships UCD 13)
+`isprintable()` is False for U+1CD00–1CDE5 and the parse loop contributes no cell at all —
+every row containing one shears left (a 5-cell row rasterizes to 4). Judge those two tiers
+on a real terminal or the GIF gate.
 
 Truecolor (`38;2;r;g;b` / `48;2;…`), 256-colour (`38;5;n`), and the 16 basic
 colours are understood; other SGR codes are ignored. Stdlib only (zlib for PNG).
