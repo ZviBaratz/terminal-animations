@@ -95,6 +95,26 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   wire's run of distinct dots: **88.3% orthogonal, 11.7% diagonal, 0.00% gaps** at 100×28.
   Genuine breaks are absent; 4-connected rasterization was measured and rejected.
 
+- **`ansi2png.py` rasterizes glyph ink coverage, so a density ramp reads as a ramp.**
+  Every printable glyph was painted as a flat block of its foreground colour, so `·` and
+  `@` rasterized identically. For an engine that splits brightness between glyph density
+  and colour luminance — fresco's `lumRange`, the two-channel split `craft.md` teaches —
+  that put half the signal in a channel the gate could not see. It was worse than blind:
+  it **ranked the sweep backwards.** Mean pixel brightness over a tunnel field at
+  `lumRange` 0 / 0.5 / 0.75 / 1 measured 153 / 104 / 88 / 76 — monotonically *decreasing*,
+  because at `lumRange` 0 density carries all the brightness, nearly every cell holds some
+  glyph, and painting each as a full block renders a vivid full-bleed field where the
+  terminal truth is a faint dust of `·` and `:`. An author sweeping the PNG and picking
+  the image with the most presence was steered to the setting that dots the field out.
+  The same sweep now reads 28 / 32 / 36 / 55, in the right order. Shade and typographic
+  glyphs blend over the background at an approximate coverage (`INK`), judged by eye at
+  terminal proportions — the ordering along a ramp has to be right, not the third decimal.
+  A printable glyph with no `INK` entry still falls back to a solid foreground block, so
+  labels, box drawing, unknown scripts and the sextant tier stay visible rather than
+  vanishing into an invented coverage. **On by default**, not behind a flag: a correctness
+  gate whose correctness depends on remembering a flag is a footgun. That does change
+  output for text — a typewriter's letters now render blended rather than solid.
+
 - **The resolution ladder now states which rungs the headless gate can actually see.**
   `techniques.md`'s ladder table gains a **Headless gate** column, because the skill
   otherwise pushes authors *up* the ladder into a blind spot: `record-headless.sh` builds

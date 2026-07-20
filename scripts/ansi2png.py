@@ -11,15 +11,18 @@ the formula.
 
 Reads the `frames` dump on stdin (the `--- frame N ---` headers are recognised and
 each frame is stacked vertically with a gap). A painted-background space shows as its
-bg colour and a glyph as its fg colour; the half-block, quadrant and full-block glyphs
+bg colour; the half-block, quadrant and full-block glyphs
 (▀▄▌▐ █ ▖▗▘▙▚▛▜▝▞▟) are split into their 2x2 sub-cell fg/bg regions and braille
 (U+2800–28FF) into its 2x4 dot grid — a lit dot takes the foreground, an unlit dot the
 background — so real half-block raster and braille line art both read correctly. Dots
 fill their sub-rectangle rather than being drawn inset, so a cell's eight dots tile it
 with no gaps; that is the right approximation at these sizes (use --ch >= 4 so all four
-dot rows get a pixel). Sextant (U+1FB00–1FB3B) and octant (U+1CD00–1CDE5) carry finer
+dot rows get a pixel). A shade or typographic glyph is blended over the background at its
+ink coverage (see INK), so a glyph-density ramp reads as the ramp it is rather than as a
+flat wall of fg. Sextant (U+1FB00–1FB3B) and octant (U+1CD00–1CDE5) carry finer
 detail than this coarse rasterizer resolves, and they fail differently: a sextant cell
-collapses to its foreground, while an octant cell is dropped *entirely*. Octants need
+has no INK entry and so falls back to a solid block of its foreground, while an octant
+cell is dropped *entirely*. Octants need
 Unicode 16 (Sept 2024), so on a Python whose `unicodedata` is older (3.10 ships UCD 13)
 `isprintable()` is False for U+1CD00–1CDE5 and the parse loop contributes no cell at all —
 every row containing one shears left (a 5-cell row rasterizes to 4). Judge those two tiers
@@ -96,6 +99,41 @@ def _braille_masks():
 
 
 BRAILLE = _braille_masks()
+
+# Typographic glyphs -> approximate ink coverage, blended over the background the
+# same way SHADE is. This is what makes a *glyph-density ramp* legible in the PNG.
+#
+# Without it every printable glyph is a flat block of its fg colour, so '·' and '@'
+# rasterize identically and a ramp that carries real structure reads as a smooth
+# wash. That is not a cosmetic gap: an engine that splits brightness between glyph
+# density and colour luminance (fresco's lumRange) puts half its signal in this
+# channel, and a rasterizer blind to it silently flatters the setting that spends
+# *nothing* on density. Coverage is judged by eye at terminal proportions and is
+# approximate on purpose — the ordering along a ramp is what has to be right, not
+# the third decimal. A printable glyph absent from this table falls back to a solid
+# fg block, so labels, box drawing and unknown scripts stay visible.
+INK = {ch: cov for cov, chars in [
+    (0.05, ".·'`˙"),
+    (0.07, ",_"),
+    (0.09, "-\"^"),
+    (0.11, ":!~"),
+    (0.13, ";l|"),
+    (0.15, "/\\<>()i"),
+    (0.17, "+[]{}r"),
+    (0.19, "=?tv"),
+    (0.22, "*cxz1"),
+    (0.25, "sun7"),
+    (0.28, "yJLT"),
+    (0.32, "oae3"),
+    (0.35, "FCY42"),
+    (0.38, "wSZgh"),
+    (0.42, "AEHKPUVX"),
+    (0.45, "ODGNR69"),
+    (0.48, "0%mQW5"),
+    (0.52, "&8BM$"),
+    (0.58, "#"),
+    (0.72, "@"),
+] for ch in chars}
 
 
 def _mix(bg, fg, a):
@@ -218,6 +256,8 @@ def row_cells(line):
             cells.append(_mask_cell(fgc, bgc, BRAILLE[ch], 2, 4))
         elif ch in SHADE:
             cells.append(("solid", _mix(bgc, fgc, SHADE[ch])))
+        elif ch in INK:
+            cells.append(("solid", _mix(bgc, fgc, INK[ch])))
         elif ch.isprintable() and ch != "\t":
             cells.append(("solid", fgc))
         # other control chars contribute no cell
