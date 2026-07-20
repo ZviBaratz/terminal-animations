@@ -10,6 +10,12 @@
 *.cast
 *.log
 
+# Browser harness build outputs — scripts/harness.sh regenerates both, and
+# wasm_exec.js must match the toolchain that built the module, so neither is
+# safe to commit.
+/web/*.wasm
+/web/wasm_exec.js
+
 # Python
 __pycache__/
 *.pyc

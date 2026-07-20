@@ -13,6 +13,9 @@ colour.
 | `record.sh` | The beauty gate: records a short GIF of the preview via vhs. |
 | `record-headless.sh` | Headless beauty gate: turns a `frames` dump into a seamless-loop GIF + a truecolor MP4 with only `ffmpeg` + `python3` — no vhs. |
 | `ansi2png.py` | Headless colour gate: rasterizes the `frames` dump into a PNG you can open/Read when there's no TTY. Stdlib Python, no deps. |
+| `harness/` | Copy the directory to `cmd/wasm/`, rename `main.go.tmpl` → `main.go`, and wire `render()` — the same one line as `cmd/preview`. Compiles the animation to WASM for the browser harness. |
+| `harness.sh` | Builds an animation to WASM and serves the browser harness: scrub any tick, drag the pane, compare tick vs tick+period. Needs only `go` + `python3`. |
+| `../web/` | The harness page itself (`index.html`, `harness.js`) at the repo root — static files, no node, no bundler. Shared by every animation; `?anim=<name>` picks the module. |
 
 ## Inner loop (fast, no extra tools)
 
@@ -34,6 +37,30 @@ shows motion, and the optional `w h` renders a big field for the headless gate.
 Check: exactly `h` lines of `w` cells, width-1 glyphs, real negative space,
 consecutive frames differ, and — the step that's easy to skip — the colour
 actually varies the way you intended.
+
+## Browser harness (needs only go + python3)
+
+The terminal loop can't scrub, and checking the resolution ladder means resizing
+a real window by hand. The browser harness compiles the animation to WASM and
+drives `Frame(w, h, tick)` directly, so tick and pane size become controls:
+
+```sh
+scripts/harness.sh examples/nebula        # → http://localhost:8731/?anim=nebula
+scripts/harness.sh examples/nebula 9000   # …on a different port
+```
+
+| Control | What it answers |
+|---|---|
+| tick slider, `step`, `←`/`→` | What does frame N actually look like? (no rebuild) |
+| `w`/`h`, `fit to window` | Does it reflow across the resolution ladder? |
+| `compare` + `Δ` | Is the loop seamless? Set Δ = period; the panes must be identical. |
+| `ms/frame` readout | Is `Frame` itself fast enough, separate from paint cost? |
+
+The animation needs a `cmd/wasm` entrypoint — copy `harness/` as above. This is
+a *looking* tool, not a gate: `record-headless.sh` still owns the artifact, and
+`ansi2png.py` still owns the headless colour check. Note also that scrubbing
+backwards is only meaningful for a pure `Frame(w, h, tick)` animation; a
+stateful one can only be replayed forward.
 
 ## Beauty gate (needs vhs + ttyd + ffmpeg)
 
