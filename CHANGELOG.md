@@ -13,6 +13,23 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Added
 
+- **`examples/bust`** — the worked example of **"bake the subject, synthesize the scene"**
+  (`references/atmosphere-kit.md`, `references/tools.md` §Baking): a marble bust that is
+  *lit and turning in mist*, where only the subject is baked and the whole atmosphere is
+  live. At author time `clean.py` (pure Pillow) mattes the **whole** bust — head *and*
+  shoulders — off its watermarked white field into an RGBA cut-out (flooding only near-pure
+  white so lit marble that touches the frame isn't eaten, keeping every component above a
+  size floor so a highlight can't split off the body), and Pillow warps it into a seamless
+  **pseudo-3D turn** (a perspective keystone, yaw = `A·sinθ`), baked *premultiplied* so the
+  downscale carries no cutout halo. The 72 RGBA frames are stacked into `frames.png`,
+  embedded with `go:embed` and decoded once. `Frame(w, h, tick)` then composites the subject,
+  every tick, over a **runtime** scene — a lit backdrop, drifting `fbm` mist behind and in
+  front, and a warm key light that **orbits** the head with a cool silhouette rim — all pure
+  functions of the loop phase, so the piece stays offline, deterministic, and seamless. A
+  light and a fog that move can't be frozen, which is why the frames keep an alpha channel.
+  The watermarked source is never committed. `bust_test.go` pins the `h×w` contract,
+  no-panic, determinism, the seamless loop, live motion, a golden, and an alpha-integrity
+  guard on the baked sheet (a regression test against matte amputation).
 - **`examples/torus`** — a third reference animation, and the first to demonstrate the
   **top rung of the resolution ladder**: a pure, deterministic **braille** 3D wireframe
   torus that tumbles about two axes, removes its own hidden lines with a per-dot depth
@@ -68,6 +85,25 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Changed
 
+- **The skill now makes the vision *load-bearing* — it is graded, not just elicited.** The
+  Brief's "one special idea" used to be stated once and then abandoned, so a build could pass
+  every test and still miss what was asked (a matted still panned in an ellipse, no light, no
+  atmosphere). Now `SKILL.md` §1 captures a **Vision Card** (subject · motion *verb* · light ·
+  atmosphere · palette · the one idea) as a durable artifact, and the beauty gate (§Tune,
+  `craft.md`, `agents/tuner.md`) grades the result against it slot by slot — and may **fail a
+  merely-competent piece.** New craft: `craft.md` §"Making a subject move in 3D" (pseudo-3D
+  turn, parallax, relighting sweep, atmospheric depth — the vocabulary that beats a pan) and
+  the red flag that two quarter-phase sinusoids are an ellipse, not motion.
+- **"Layer a field behind the subject" became real machinery.** New reference
+  `references/atmosphere-kit.md` — paste-ready Go to composite a **baked subject (with alpha)
+  over a runtime-synthesized scene** (moving light, drifting `fbm` mist, lit backdrop, rim),
+  the pattern `examples/bust` now embodies. `tools.md` §Baking was rewritten to headline
+  *bake the subject, synthesize the scene* (with a **subject-integrity check** against matte
+  amputation and premultiplied-RGBA / non-ringing-downscale guidance) and to demote the
+  bake-a-finished-picture Ken Burns pan to the RED baseline. `techniques.md` gains a note on
+  routing a *photographic* subject (widen + light-as-sharpness; the sixel/kitty tier as a real
+  option), and the `tuner` is told its reach ends at sweeping constants — a missing layer or
+  wrong motion-model is an author fix.
 - **`ansi2png.py` rasterizes glyph ink coverage, so a density ramp reads as a ramp.**
   Every printable glyph was painted as a flat block of its foreground colour, so `·` and
   `@` rasterized identically. For an engine that splits brightness between glyph density

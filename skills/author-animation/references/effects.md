@@ -50,6 +50,16 @@ The RED baseline for "build a starfield" is a competent single effect in flat AS
 The step up:
 - **Layer** a slow field (plasma / nebula wash on colour luminance) *behind* a sprite or
   particle system, with a focal **vignette** (`craft.md`) tying them together.
+- **Composite a baked subject over a live scene.** A photographic or matted subject has no
+  geometry to light — so bake it *with alpha* and synthesize the scene around it at run time:
+  a lit backdrop and mist behind, a sweeping light on the subject, wisps in front. This is
+  how a cut-out becomes a lit object in space (and the antidote to the panned-still baseline).
+  `atmosphere-kit.md` is the code; `examples/bust` the worked piece.
+- **Borrow the 3D reads for a flat subject.** The parallax of the *starfield warp*, the
+  moving `N·L` of the *donut*, and a *perspective* turn are not only for procedural geometry
+  — apply them to a baked subject (parallax between its depth planes, a relighting sweep, a
+  keystone yaw) to fake dimensionality from a still. See `craft.md` §"Making a subject move
+  in 3D".
 - **Reinterpret the tier** — the same starfield in **half-blocks** or **braille**
   (`techniques.md`) is a different, far higher-fidelity object than the `.·+*#@` version.
 - **Drive one with another** — let a plasma field modulate a rain's colour, or fire's

@@ -86,6 +86,17 @@ are two regions wide, not one — but each cell still carries only **two** colou
 extra regions buy sharper hard *edges* inside a cell, not a smoother colour ramp: for a
 smooth colour field half-block is already the right rung — widen before you climb.
 
+**A photographic subject (a bust, a face) will read soft on half-block** — a smooth
+continuous-tone object has no hard edges for the extra sub-cell columns to sharpen, and its
+horizontal detail is capped at the column count. Mitigate it rather than fighting the rung:
+bake at a **higher native pixel resolution** (widen), and lean on **light and contrast to
+define form** — a raking key and a rim carve the silhouette and features the glyph grid
+can't resolve on its own (`atmosphere-kit.md`), which is why "dramatic lighting" does double
+duty as a *sharpness* tool here. If the deploy target is a known graphics-capable terminal
+and photographic fidelity is the whole point, the **graphics-protocol tier below is a real
+option, not only a future one** — bake to PNG and blit via sixel/kitty, falling back to the
+half-block ladder elsewhere.
+
 ## The graphics-protocol tier (true raster — future/high-fidelity)
 
 Not glyph tricks: the terminal blits real pixels from your image data. Use for

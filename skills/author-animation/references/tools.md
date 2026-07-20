@@ -63,10 +63,43 @@ The Go convention is for the *shipped* artifact; at design time, reach wider.
 ## Baking — keep the artifact deterministic
 
 When a piece is *sourced* from an image/video, run the converter **at build time** and
-commit the result as data the Go animation replays — frames as `[]string`, or a derived
-palette/mask as a `[]rune`/`[]color`. The `Frame`/`Animation` then indexes that baked
+commit the result as data the Go animation replays — frames as `[]string`, RGBA pixels, or a
+derived palette/mask as a `[]rune`/`[]color`. The `Frame`/`Animation` then indexes that baked
 data by `tick`. Result: tool-quality visuals, but the shipped animation is still pure,
 offline, snapshot-testable. Never invoke a converter from inside the render loop.
+
+**Bake the subject, synthesize the scene — don't bake a finished picture.** The tempting
+shortcut with a still is to bake the *whole frame*: matte the subject onto a backdrop,
+ffmpeg a Ken Burns pan + brightness "breathe", stack the frames. That ships a photograph
+with a camera move — one flat plane, no light, no depth (it is the failure `atmosphere-kit.md`
+and `examples/bust`'s history exist to warn against). Bake **only the subject, with an alpha
+channel**; synthesize the backdrop, the mist, and the *moving* light at run time in `Frame`
+(`atmosphere-kit.md`). A light and a fog that move cannot be frozen — the moment you bake
+them flat you are back to the panned photo. What you bake, then, is:
+
+- **Subject motion — a pseudo-3D turn, not a pan.** A single still can't show the back, so
+  fake rotation: warp the cut-out with a perspective keystone whose yaw = `A·sinθ` (loops,
+  reads as turning). `ffmpeg -vf perspective` or Pillow `Image.transform(PERSPECTIVE)` — bake
+  it *premultiplied* (RGB × alpha) with a **non-ringing** downscale (`bilinear`, not Lanczos,
+  or the premultiplied edge overshoots into a bright cutout halo), so `Frame`'s composite is
+  the one-line `premult + backdrop·(1−α)`.
+- **A source video / turntable** for genuine rotation — extract frames with ffmpeg
+  (`fps=…`), matte each, bake the sequence. The only honest path to a *literal* spin.
+- **Fully-baked atmosphere is possible but usually wrong** — ffmpeg *can* synthesize a
+  moving light (`geq` with a light position in `t`), drifting mist (`perlin` → `gblur` →
+  `blend`), and a warp, all at build time. Do it only when you must ship a plain frame
+  sequence; otherwise synthesize atmosphere live so it stays tunable and can move
+  independently of the subject.
+
+**The subject-integrity check (do this before anything else).** A matte silently amputates:
+"keep the largest connected component" drops a subject that a bright highlight split into two
+blobs; a brightness flood-fill from the borders eats brightly-lit parts of the subject that
+touch an edge. **Look at the silhouette** (render the alpha as ASCII, or open the cut-out)
+and confirm the *whole* subject survived — not just the easy part. Concretely: keep *every*
+component above a size floor (not only the largest), set the background threshold high enough
+that lit subject pixels aren't classified as background, and assert a sane coverage fraction
+in the bake so a collapse fails loudly. `examples/bust`'s `clean.py` and its `TestBakedSheet`
+alpha guard are the worked version.
 
 ## The headless colour gate
 
