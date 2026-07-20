@@ -1,25 +1,19 @@
 // harness.js — the authoring loop: scrub, resize, compare.
 //
 // The Go side hands us a packed Int32Array (fg, bg, glyph per cell); this file
-// only paints. Block-element glyphs are drawn as filled sub-cell rectangles —
-// the same model scripts/ansi2png.py uses — so what you see here matches the
-// PNG/GIF export rather than approximating it with a font.
+// only paints. Block elements (2x2 sub-cells) and braille (2x4 dots) are drawn as
+// filled sub-cell rectangles — the same model scripts/ansi2png.py uses — so what
+// you see here matches the PNG/GIF export rather than approximating it with a font.
+//
+// That equivalence is verifiable, not aspirational: render any frame through
+// `ansi2png.py --cw N --ch 2N` and through this painter at `cell=N`, and the two
+// images are pixel-identical. Anything that falls through to the font path is
+// counted in `Pane.deferred` and surfaced in the status line, because it is both
+// far slower and no longer guaranteed to match.
+
+import { bandEdges, BRAILLE_MASK, BLOCK_MASK } from './glyphs.js';
 
 const CELL_INTS = 3;
-
-// Sub-cell coverage for the block elements, as [x, y, w, h] in cell fractions.
-// Anything not listed falls back to drawing the glyph with a monospace font.
-const BLOCKS = {
-  0x2588: [0, 0, 1, 1],       // █ full
-  0x2580: [0, 0, 1, 0.5],     // ▀ upper half
-  0x2584: [0, 0.5, 1, 0.5],   // ▄ lower half
-  0x258c: [0, 0, 0.5, 1],     // ▌ left half
-  0x2590: [0.5, 0, 0.5, 1],   // ▐ right half
-  0x2596: [0, 0.5, 0.5, 0.5], // ▖
-  0x2597: [0.5, 0.5, 0.5, 0.5], // ▗
-  0x2598: [0, 0, 0.5, 0.5],   // ▘
-  0x259d: [0.5, 0, 0.5, 0.5], // ▝
-};
 
 const hex = (v) => '#' + (v >>> 0).toString(16).padStart(6, '0');
 
@@ -62,8 +56,18 @@ class Pane {
     }
     const px = this.px;
 
-    // Glyphs with no block coverage are rare; defer them to a text pass so the
-    // fast path stays branch-light.
+    // Sub-cell geometry, hoisted: it depends only on the cell size, not the cell.
+    // Both tiers are 2 columns wide, so one x split serves them; they differ only
+    // in row count. bandEdges tiles exactly, so bands never overlap — which matters
+    // here in a way it did not for the old one-rect-per-glyph path, because a
+    // multi-band glyph would otherwise paint over its own background.
+    const xm = bandEdges(cw, 2)[1];
+    const rows2 = bandEdges(ch, 2);
+    const rows4 = bandEdges(ch, 4);
+
+    // Glyphs neither tier models are rare; defer them to a text pass so the fast
+    // path stays branch-light. Counted so the fallback cannot go unnoticed — it is
+    // an order of magnitude slower and renders in whatever font the machine has.
     let text = null;
 
     for (let row = 0; row < h; row++) {
@@ -79,22 +83,67 @@ class Pane {
         }
         if (glyph === 32) continue;
 
-        const box = BLOCKS[glyph];
-        if (box === undefined) {
+        // Braille first, on one shift-compare: a wireframe is ~100% braille, and
+        // this keeps it off the block table entirely. Exact for U+2800..U+28FF.
+        let mask, edges, full;
+        if ((glyph >> 8) === 0x28) {
+          mask = BRAILLE_MASK[glyph & 0xff];
+          // U+2800 is a genuine blank — the background is already correct.
+          if (mask === 0) continue;
+          edges = rows4;
+          full = 0xff;
+        } else if (glyph >= 0x2580 && glyph <= 0x259f) {
+          mask = BLOCK_MASK[glyph - 0x2580];
+          // 0 here means "not modelled" (the eighth blocks), not "empty" — defer,
+          // rather than silently leaving the cell as background.
+          if (mask === 0) {
+            (text || (text = [])).push(x0, y0, glyph, buf[i]);
+            continue;
+          }
+          edges = rows2;
+          full = 0xf;
+        } else {
           (text || (text = [])).push(x0, y0, glyph, buf[i]);
           continue;
         }
+
         const fg = abgr(buf[i]);
-        const sy = (box[1] * ch) | 0, sh = Math.ceil(box[3] * ch);
-        const sx = (box[0] * cw) | 0, sw = Math.ceil(box[2] * cw);
-        for (let y = sy; y < sy + sh; y++) {
-          const o = (y0 + y) * pxW + x0 + sx;
-          px.fill(fg, o, o + sw);
+
+        // A fully-lit cell is one flat run per pixel row, same as the old █ path.
+        // Worth special-casing: it is the common case for dense block fields, and
+        // it bounds a braille cell's cost at exactly a full block's.
+        if (mask === full) {
+          for (let y = 0; y < ch; y++) {
+            const o = (y0 + y) * pxW + x0;
+            px.fill(fg, o, o + cw);
+          }
+          continue;
+        }
+
+        // Decompose by row band, not by dot: within a band only the two columns
+        // vary, so a band is at most one fill per pixel row — and a both-columns
+        // band (the common case in dense line art) collapses to a single full-width
+        // fill rather than two half-width ones.
+        for (let r = 0; r < edges.length - 1; r++) {
+          const b = (mask >> (r * 2)) & 3;
+          if (b === 0) continue;
+          const fx0 = b === 2 ? xm : 0;
+          const fx1 = b === 1 ? xm : cw;
+          for (let y = y0 + edges[r]; y < y0 + edges[r + 1]; y++) {
+            const o = y * pxW + x0;
+            px.fill(fg, o + fx0, o + fx1);
+          }
         }
       }
     }
 
     ctx.putImageData(this.img, 0, 0);
+
+    // Surfaced in the status line. Any non-zero count means cells are rendering
+    // through a font rather than the sub-cell model — so they neither match the
+    // PNG export nor stay on the fast path, and on most machines the glyph is not
+    // in a monospace face at all and lands proportional and off-grid.
+    this.deferred = text ? text.length / 4 : 0;
 
     if (text) {
       ctx.textBaseline = 'top';
