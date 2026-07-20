@@ -30,6 +30,9 @@
 
 <header>
   <h1>terminal-animations · <span id="anim-name">…</span></h1>
+  <!-- Populated from animations.json when present; hidden otherwise, so a local
+       single-animation run doesn't show an empty dropdown. -->
+  <select id="anim-picker" hidden aria-label="animation"></select>
   <span class="meta">status: <span id="status">loading wasm…</span></span>
   <span class="meta">pane: <span id="dims">—</span></span>
   <span class="meta"><span id="perf">—</span></span>

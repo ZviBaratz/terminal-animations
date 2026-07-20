@@ -201,6 +201,27 @@ const anim = new URLSearchParams(location.search).get('anim') || 'nebula';
 document.title = `terminal-animations — ${anim}`;
 el('anim-name').textContent = anim;
 
+// animations.json is written by scripts/harness.sh and by the pages workflow.
+// It's what lets a hosted visitor discover the other animations; when it's
+// absent (a bare `python3 -m http.server` in web/) the picker just stays hidden.
+fetch('animations.json')
+  .then((r) => (r.ok ? r.json() : Promise.reject()))
+  .then((names) => {
+    if (!Array.isArray(names) || names.length < 2) return;
+    const picker = el('anim-picker');
+    for (const name of names) {
+      const opt = document.createElement('option');
+      opt.value = opt.textContent = name;
+      opt.selected = name === anim;
+      picker.append(opt);
+    }
+    picker.hidden = false;
+    picker.addEventListener('change', () => {
+      location.search = `?anim=${encodeURIComponent(picker.value)}`;
+    });
+  })
+  .catch(() => {});
+
 const go = new Go();
 WebAssembly.instantiateStreaming(fetch(`${anim}.wasm`), go.importObject)
   .then((res) => go.run(res.instance))

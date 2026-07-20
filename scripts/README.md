@@ -62,6 +62,20 @@ a *looking* tool, not a gate: `record-headless.sh` still owns the artifact, and
 backwards is only meaningful for a pure `Frame(w, h, tick)` animation; a
 stateful one can only be replayed forward.
 
+Building more than one animation writes `web/animations.json`, which turns on the
+page's animation picker; with a single animation the picker stays hidden.
+
+### Publishing it
+
+`.github/workflows/pages.yml` builds every `examples/*/cmd/wasm` and publishes
+`web/` to GitHub Pages on push to `main` (PRs build only, so a broken WASM build
+is caught pre-merge without overwriting the live site). The build step is needed
+because `web/` is source-only — the `.wasm` modules, `wasm_exec.js`, and the
+manifest are all gitignored, and `wasm_exec.js` in particular must match the
+toolchain that built the module.
+
+One-time repo setup: **Settings → Pages → Source = "GitHub Actions"**.
+
 ## Beauty gate (needs vhs + ttyd + ffmpeg)
 
 ```sh
