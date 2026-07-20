@@ -35,8 +35,9 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version: stable
-          # Each example is its own module with no dependencies, so there is no
-          # shared go.sum for the build cache to key on.
+          # Each example is its own module and they share no go.sum (most have no
+          # dependencies at all; examples/embers is the one that pulls in fresco),
+          # so there is no single key for the build cache to key on.
           cache: false
 
       - name: Build every animation to WASM

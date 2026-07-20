@@ -18,6 +18,9 @@ the deferred **future hybrid door** — not this plugin's self-contained artifac
   built-in fields: **rain, tunnel, ripple, galaxy**. For a full-pane animated background
   or one of those effects, use fresco rather than reimplementing it — and if you're
   adding a *new* field from inside the fresco repo, that's a fresco variant (skill §A).
+  `examples/embers` is a worked composite that imports fresco from *outside* the repo —
+  a dimmed galaxy field with a foreground ember layer composited over it — showing the
+  parse-the-rendered-output-and-composite shape this section describes.
 - **ascii-image-converter** — `github.com/TheZoraiz/ascii-image-converter` (+ `aic_package`)
   — image → ASCII/**braille**, truecolor, dithering, in-process.
 - **Charm stack** — **bubbletea** (TUI runtime — the *driver*, not the animation),
