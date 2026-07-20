@@ -69,7 +69,10 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   good at.** The page a visitor landed on was the authoring harness: two control bars over a
   small canvas, ~60% empty gutter, no type hierarchy. The gallery now ships **zero WASM**, is
   mobile-first and indexable, and presents the resolution ladder *including its gaps* — rungs
-  2, 3 and 4 have nothing on them and say so. Each rung's sample is **drawn** through
+  2, 3 and 4 have nothing on them and say so. The ladder is a *view* of one label dimension:
+  an animation carries a list of `resolutions` and lists under every rung it uses, so a piece
+  that combines rungs is not forced to pick one, and a resolution off the ladder gets an
+  *unclassified* row rather than silently vanishing. Each rung's sample is **drawn** through
   `web/glyphs.js` at that rung's real sub-cell geometry, because no font has sextant, octant or
   braille coverage (checked, not assumed) and a typeset ladder would have been three rows of
   tofu. The viewer is full-bleed and borderless — `craft.md` asks that a piece read as "a window
@@ -80,10 +83,14 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - **`web/glyphs.js` + `web/glyphs.test.js`** — the sub-cell geometry model, extracted as pure
   integer tables with no DOM, shared by the painter, the gallery samples and the tests, and
   pinned against `scripts/ansi2png.py`.
+- **`web/ladder.js` + `web/ladder.test.js`** — the resolution ladder as a pure, DOM-free label
+  dimension: the rung table, the many-to-many grouping (one animation under every rung it uses),
+  and the viewer's caption names, shared by the gallery and the viewer and tested so an off-ladder
+  resolution cannot silently drop an animation.
 - **`examples/torus/cmd/wasm`**, so the top rung of the ladder is no longer the one animation the
   browser cannot open.
 - **`scripts/manifest.py` and `scripts/posters.sh`**, plus a `meta.json` per animation — title,
-  blurb, ladder rung, accent and loop shape, merged into `animations.json` at build time, and
+  blurb, `resolutions`, accent and loop shape, merged into `animations.json` at build time, and
   still-frame posters rendered through `ansi2png.py` so the gallery needs neither WASM nor a
   running animation to show what something looks like.
 - **Self-hosted type: Departure Mono + JetBrains Mono**, both OFL 1.1 with no Reserved Font Name

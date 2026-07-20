@@ -12,6 +12,7 @@
 // far slower and no longer guaranteed to match.
 
 import { bandEdges, BRAILLE_MASK, BLOCK_MASK } from './glyphs.js';
+import { rungNames } from './ladder.js';
 
 const CELL_INTS = 3;
 
@@ -450,7 +451,8 @@ fetch('animations.json')
     if (meta.accent) document.documentElement.style.setProperty('--accent', meta.accent);
     if (meta.title) el('anim-name').textContent = meta.title;
     if (meta.blurb) el('anim-blurb').textContent = meta.blurb;
-    if (meta.rungName) el('anim-rung').textContent = meta.rungName;
+    const rungLabel = rungNames(meta.resolutions);
+    if (rungLabel) el('anim-rung').textContent = rungLabel;
 
     // A picker offering the one animation already on screen is a control that
     // cannot do anything, so it stays hidden below two. A local single-animation

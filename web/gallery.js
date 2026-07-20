@@ -6,36 +6,7 @@
 // typeset ladder would have been three rows of tofu.
 
 import { bandEdges, BRAILLE_MASK, BLOCK_MASK } from './glyphs.js';
-
-// The resolution ladder from references/techniques.md, in full — including the
-// rungs nothing has shipped on yet. The gaps are the point: they say what the
-// project has not done, which is how the rest of the repo talks.
-const LADDER = [
-  {
-    rung: 1, name: 'half block', glyphs: '▀▄▌▐',
-    detail: '1×2 cell · two independent 24-bit pixels',
-    note: 'the sweet spot — works everywhere',
-  },
-  {
-    rung: 2, name: 'quadrant', glyphs: '▖▗▘▝▚▞',
-    detail: '2×2 cell · two colours',
-  },
-  {
-    rung: 3, name: 'sextant', glyphs: '🬀🬁🬂🬃',
-    detail: '2×3 cell · two colours',
-    note: 'the headless gate cannot see it — it collapses to solid fg',
-  },
-  {
-    rung: 4, name: 'octant', glyphs: '',
-    detail: '2×4 cell · two colours',
-    note: 'the headless gate drops it entirely, shearing the row',
-  },
-  {
-    rung: 5, name: 'braille', glyphs: '⠿⠇⠙⣿',
-    detail: '2×4 dots · monochrome',
-    note: 'the finest grid, at the cost of colour',
-  },
-];
+import { LADDER, groupByResolution } from './ladder.js';
 
 // Draw a sample of a rung using the painter's own model, at a size that shows the
 // sub-cell structure rather than hiding it.
@@ -90,12 +61,17 @@ function sampleCells(rung, cols) {
 const esc = (s) => String(s).replace(/[&<>"]/g, (c) =>
   ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 
+const animItem = (a) => `
+  <li style="--accent:${esc(a.accent || '#c8c2d8')}">
+    <a href="./view.html?anim=${encodeURIComponent(a.name)}">
+      <span class="anim-title display">${esc(a.title || a.name)}</span>
+      <span class="anim-blurb">${esc(a.blurb || '')}</span>
+      <span class="anim-loop">${esc(a.loop || '')}</span>
+    </a>
+  </li>`;
+
 function render(manifest) {
-  const byRung = new Map();
-  for (const [name, m] of Object.entries(manifest)) {
-    if (!byRung.has(m.rung)) byRung.set(m.rung, []);
-    byRung.get(m.rung).push({ name, ...m });
-  }
+  const { byRung, unfiled } = groupByResolution(manifest);
 
   const list = document.getElementById('ladder');
   list.innerHTML = '';
@@ -114,24 +90,37 @@ function render(manifest) {
       </div>
       ${step.note ? `<p class="rung-note">${esc(step.note)}</p>` : ''}
       ${animations.length
-        ? `<ul class="anims">${animations.map((a) => `
-            <li style="--accent:${esc(a.accent || '#c8c2d8')}">
-              <a href="./view.html?anim=${encodeURIComponent(a.name)}">
-                <span class="anim-title display">${esc(a.title || a.name)}</span>
-                <span class="anim-blurb">${esc(a.blurb || '')}</span>
-                <span class="anim-loop">${esc(a.loop || '')}</span>
-              </a>
-            </li>`).join('')}</ul>`
+        ? `<ul class="anims">${animations.map(animItem).join('')}</ul>`
         : `<p class="nothing">nothing shipped here yet</p>`}
     `;
     list.append(row);
     drawSample(row.querySelector('.sample'), step.rung);
   }
+
+  // An animation whose resolution is off the ladder would otherwise vanish with no
+  // row and no trace — the failure the old single-rung bucketing hid. Give it a row
+  // of its own and warn, rather than dropping it silently.
+  if (unfiled.length) {
+    console.warn('gallery: off-ladder resolution, shown as unclassified:',
+      unfiled.map((a) => a.name));
+    const row = document.createElement('section');
+    row.className = 'rung';
+    row.innerHTML = `
+      <div class="rung-head">
+        <span class="rung-no display">··</span>
+        <canvas class="sample" aria-hidden="true"></canvas>
+        <span class="rung-name">unclassified</span>
+        <span class="rung-detail">resolution not on the ladder</span>
+      </div>
+      <ul class="anims">${unfiled.map(animItem).join('')}</ul>
+    `;
+    list.append(row);
+  }
 }
 
 fetch('animations.json')
   .then((r) => (r.ok ? r.json() : Promise.reject()))
-  .then((m) => render(Array.isArray(m) ? Object.fromEntries(m.map((n) => [n, { rung: 1, title: n }])) : m))
+  .then((m) => render(Array.isArray(m) ? Object.fromEntries(m.map((n) => [n, { resolutions: [1], title: n }])) : m))
   .catch(() => {
     // No manifest means nothing was built. Say that, rather than showing an empty
     // ladder that looks like the project has no animations.

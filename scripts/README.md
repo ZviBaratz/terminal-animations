@@ -99,9 +99,15 @@ and the posters are all gitignored, and `wasm_exec.js` in particular must match 
 toolchain that built the module.
 
 An animation joins the site by having a `cmd/wasm` entrypoint; the workflow
-discovers it by glob. Add a `meta.json` beside it (title, blurb, ladder `rung`,
+discovers it by glob. Add a `meta.json` beside it (title, blurb, `resolutions`,
 `accent`, `loop`, `posterTick`) and it also gets a proper listing on the index —
-without one it still appears, on rung 1, with no blurb.
+without one it still appears, on resolution 1 (half block), with no blurb.
+
+`resolutions` is a list of ladder rungs (`[1]` half block … `[5]` braille), not a
+single value: the resolution ladder is one label dimension, so an animation that
+combines rungs — say a half-block field with braille detail — lists under each one
+it uses. It is the first such dimension; others (loop character, palette) would be
+added as further list-valued keys, and the gallery groups by whichever it renders.
 
 One-time repo setup: **Settings → Pages → Source = "GitHub Actions"**.
 

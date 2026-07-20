@@ -4,11 +4,11 @@
 Keyed on the .wasm modules actually present in web/, so the index can never link
 to a viewer with no module behind it. Each entry is that animation's meta.json,
 which lives beside the animation because it describes the animation: title,
-blurb, ladder rung, accent colour, loop shape, and which tick to still for the
-poster.
+blurb, resolution label(s), accent colour, loop shape, and which tick to still
+for the poster.
 
-An animation with no meta.json still appears — on rung 1, with no blurb — rather
-than vanishing from the index without explanation.
+An animation with no meta.json still appears — on resolution 1 (half block), with
+no blurb — rather than vanishing from the index without explanation.
 
 Stdlib only, like scripts/ansi2png.py.
 
@@ -28,10 +28,16 @@ def build(root):
         meta = os.path.join(root, "examples", name, "meta.json")
         if os.path.exists(meta):
             with open(meta, encoding="utf-8") as f:
-                out[name] = json.load(f)
+                entry = json.load(f)
+            # A legacy scalar `rung` becomes a one-element `resolutions` list, so a
+            # meta.json written before the ladder was a label dimension still lands
+            # its animation on a rung instead of dropping out of the gallery.
+            if "resolutions" not in entry and "rung" in entry:
+                entry["resolutions"] = [entry["rung"]]
+            out[name] = entry
         else:
-            out[name] = {"title": name, "rung": 1}
-            print(f"  note: {name} has no meta.json — defaulting to rung 1")
+            out[name] = {"title": name, "resolutions": [1]}
+            print(f"  note: {name} has no meta.json — defaulting to resolution 1 (half block)")
     return out
 
 

@@ -64,7 +64,7 @@ jobs:
 
           # The same script scripts/harness.sh uses, so the manifest a visitor gets
           # and the one you develop against cannot drift. It merges each
-          # animation's meta.json — title, blurb, ladder rung, accent, loop shape —
+          # animation's meta.json — title, blurb, resolutions, accent, loop shape —
           # keyed on the modules that actually built, so the index can never link
           # to a viewer with no module behind it.
           python3 scripts/manifest.py .

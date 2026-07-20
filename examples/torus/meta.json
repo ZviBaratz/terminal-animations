@@ -1,8 +1,7 @@
 {
   "title": "torus",
   "blurb": "a tumbling wireframe that removes its own hidden lines",
-  "rung": 5,
-  "rungName": "braille",
+  "resolutions": [5],
   "accent": "#F078C8",
   "loop": "seamless · scales with the pane",
   "note": "accent sampled from the hot pink-white near limb; posterTick 615 is the open-ring attitude at the landscape poster's pane, chosen by looking at a sweep across the period",

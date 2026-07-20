@@ -1,8 +1,7 @@
 {
   "title": "plasma",
   "blurb": "four summed sines under an orbiting ripple",
-  "rung": 1,
-  "rungName": "half block",
+  "resolutions": [1],
   "accent": "#D09020",
   "loop": "free-running — never repeats",
   "note": "accent sampled from its gold band (hue 30-55deg), the palette's warm centre",

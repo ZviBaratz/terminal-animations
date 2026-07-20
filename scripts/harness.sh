@@ -29,7 +29,7 @@ echo "  $(du -h "$ROOT/web/$NAME.wasm" | cut -f1) ($(gzip -9 -c "$ROOT/web/$NAME
 # Manifest of everything built so far, so the page matches what the pages workflow
 # produces. Keyed on the .wasm files present rather than on examples/, since only
 # what you have actually built is servable — then merged with each animation's
-# meta.json, which is where the gallery gets its titles, rungs and accent colours.
+# meta.json, which is where the gallery gets its titles, resolutions and accents.
 python3 "$ROOT/scripts/manifest.py" "$ROOT"
 
 # Posters belong to the pages build, not the authoring loop: each one costs a full
