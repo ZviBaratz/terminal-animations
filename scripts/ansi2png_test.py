@@ -171,6 +171,20 @@ def main():
     assert ([pixel(rowsod, x, 0) for x in range(7)]
             == [(0, 255, 0)] * 3 + [(0, 0, 0)] * 4), [pixel(rowsod, x, 0) for x in range(7)]
 
+    # The shade blocks ░▒▓ blend fg over bg at a fixed coverage — the tier INK was
+    # modelled on. White on black makes the coverage readable straight off the channel
+    # value, so this pins the actual constants (0.25/0.5/0.75), not just their order:
+    # a shade rendered as a solid fg block reads 255, and as bg reads 0.
+    shades = "--- frame 0 ---\n\x1b[48;2;0;0;0m\x1b[38;2;255;255;255m░▒▓\x1b[0m\n"
+    _, _, rs = decode_png(run(shades.encode(), env))
+    for i, want in enumerate((64, 128, 191)):              # round(255*0.25/0.5/0.75)
+        px = pixel(rs, i * cw, 0)
+        assert px == (want,) * 3, (i, px, want)
+        # …and the blend fills the whole cell uniformly — it is a flat wash, not a
+        # sub-cell split like the half-block and braille tiers above.
+        assert all(pixel(rs, i * cw + x, y) == px
+                   for x in range(cw) for y in range(ch)), (i, "shade cell not uniform")
+
     # A typographic ramp rasterizes as ink *coverage*, not flat fg blocks. '·' and '@'
     # carry the same fg colour, so a flat-block rasterizer draws them identically —
     # which is exactly the blindness that made this gate useless for judging a
