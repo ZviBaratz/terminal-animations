@@ -5,6 +5,7 @@
   "rungName": "braille",
   "accent": "#F078C8",
   "loop": "seamless · scales with the pane",
-  "note": "accent sampled from the hot pink-white near limb",
-  "posterTick": 150
+  "note": "accent sampled from the hot pink-white near limb; posterTick 615 is the open-ring attitude at the landscape poster's pane, chosen by looking at a sweep across the period",
+  "posterTick": 615,
+  "posterTickPortrait": 417
 }

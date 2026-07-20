@@ -53,14 +53,27 @@ for anim in "${names[@]}"; do
   src="$ROOT/examples/$anim"
   [[ -d "$src" ]] || { echo "no such animation: $anim" >&2; exit 1; }
 
-  # Which frame to still. Tick 0 is rarely the animation at its best — torus is
+  # Which frame to still. Tick 0 is rarely an animation at its best — torus is
   # near edge-on there, and a splash field has barely built up. Declared per
-  # animation in meta.json ("posterTick"), because which frame reads best is a
-  # judgement about that animation, made by looking at it.
-  tick=$(python3 -c "import json,sys; print(json.load(open('$src/meta.json')).get('posterTick',0))" 2>/dev/null || echo 0)
+  # animation in meta.json, because which frame reads best is a judgement about
+  # that animation, made by looking at it.
+  #
+  # The two shapes get their own tick ("posterTickPortrait", falling back to
+  # "posterTick"). Not a shortcut around a shared phase: a loop whose period
+  # scales with the pane runs at a different rate in each shape, AND a wide frame
+  # and a tall frame genuinely want different attitudes — the torus reads as a
+  # torus only when its hole is visible, and which tick does that differs.
+  meta_tick() {
+    python3 -c "import json,sys
+m = json.load(open('$src/meta.json'))
+print(m.get('$1') or m.get('posterTick', 0))" 2>/dev/null || echo 0
+  }
+  tick_landscape=$(meta_tick posterTick)
+  tick_portrait=$(meta_tick posterTickPortrait)
 
-  render() { # <suffix> <cols> <rows> <cw> <ch>
+  render() { # <suffix> <cols> <rows> <cw> <ch> <tick>
     local out="$OUT/$anim$1.png"
+    local tick="$6"
     # cmd/preview has no start-tick flag, so ask for two frames a stride apart and
     # keep the second. At tick 0 the stride is ignored and one frame comes back.
     (cd "$src" && go run ./cmd/preview frames 2 "${tick:-0}" "$2" "$3") \
@@ -68,6 +81,6 @@ for anim in "${names[@]}"; do
       | python3 "$ROOT/scripts/ansi2png.py" --cw "$4" --ch "$5" > "$out"
     echo "  $anim$1  tick ${tick:-0}  $2x$3 cells  $(( $2 * $4 ))x$(( $3 * $5 )) px  $(( $(wc -c < "$out") / 1024 ))KB"
   }
-  render ""          "$LANDSCAPE_COLS" "$LANDSCAPE_ROWS" "$LANDSCAPE_CW" "$LANDSCAPE_CH"
-  render "-portrait" "$PORTRAIT_COLS"  "$PORTRAIT_ROWS"  "$PORTRAIT_CW"  "$PORTRAIT_CH"
+  render ""          "$LANDSCAPE_COLS" "$LANDSCAPE_ROWS" "$LANDSCAPE_CW" "$LANDSCAPE_CH" "$tick_landscape"
+  render "-portrait" "$PORTRAIT_COLS"  "$PORTRAIT_ROWS"  "$PORTRAIT_CW"  "$PORTRAIT_CH"  "$tick_portrait"
 done
