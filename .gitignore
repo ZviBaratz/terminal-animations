@@ -15,6 +15,7 @@
 # safe to commit.
 /web/*.wasm
 /web/wasm_exec.js
+/web/animations.json
 
 # Python
 __pycache__/

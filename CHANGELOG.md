@@ -49,6 +49,15 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   gate: `record-headless.sh` still owns the artifact and `ansi2png.py` the headless colour check.
   Build outputs (`/web/*.wasm`, `/web/wasm_exec.js`) are gitignored — `wasm_exec.js` must match
   the toolchain that built the module, so it is never safe to commit.
+- **`.github/workflows/pages.yml`** — the repo's first workflow: builds every
+  `examples/*/cmd/wasm` and publishes `web/` to GitHub Pages on push to `main`. Pull requests
+  build without deploying, so a broken WASM build is caught pre-merge without overwriting the
+  live site. The build step exists because `web/` is source-only by design (see above). It also
+  writes `web/animations.json`, a manifest of what was built; the page turns that into an
+  animation picker, so a hosted visitor can find animations other than the default instead of
+  having to guess `?anim=` names. `scripts/harness.sh` writes the same manifest locally, and the
+  picker stays hidden when only one animation is built. Requires a one-time repo setting:
+  **Settings → Pages → Source = "GitHub Actions"**.
 
 ### Changed
 

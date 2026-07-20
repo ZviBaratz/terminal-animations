@@ -1,0 +1,79 @@
+# Publishes the browser harness (web/) to GitHub Pages.
+#
+# web/ is deliberately source-only — the .wasm modules and wasm_exec.js are
+# gitignored, since wasm_exec.js must match the toolchain that built the module.
+# So Pages needs a build step: this workflow compiles every animation that has a
+# cmd/wasm entrypoint, stages the runtime beside them, and uploads the directory.
+#
+# One-time setup: Settings → Pages → Source = "GitHub Actions".
+name: pages
+
+on:
+  push:
+    branches: [main]
+  # Build (but don't deploy) on PRs, so a broken WASM build is caught pre-merge.
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Let a running deploy finish rather than cancelling it — a half-published site
+# is worse than a slightly stale one.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: stable
+          # Each example is its own module with no dependencies, so there is no
+          # shared go.sum for the build cache to key on.
+          cache: false
+
+      - name: Build every animation to WASM
+        run: |
+          set -euo pipefail
+          cp "$(go env GOROOT)/lib/wasm/wasm_exec.js" web/wasm_exec.js
+
+          names=()
+          for dir in examples/*/cmd/wasm; do
+            anim="$(basename "$(dirname "$(dirname "$dir")")")"
+            (cd "examples/$anim" && GOOS=js GOARCH=wasm go build -o "../../web/$anim.wasm" ./cmd/wasm)
+            names+=("$anim")
+            echo "built $anim ($(du -h "web/$anim.wasm" | cut -f1))"
+          done
+
+          if [[ ${#names[@]} -eq 0 ]]; then
+            echo "::error::no examples/*/cmd/wasm entrypoints found — nothing to publish"
+            exit 1
+          fi
+
+          # The manifest drives the harness's animation picker; without it the
+          # page can only show whatever ?anim= names you already know.
+          printf '%s\n' "${names[@]}" | jq -R . | jq -sc . > web/animations.json
+          echo "manifest: $(cat web/animations.json)"
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: web
+
+  deploy:
+    # PRs build only — deploying every PR would overwrite the live site.
+    if: github.event_name != 'pull_request'
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
