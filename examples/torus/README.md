@@ -125,13 +125,82 @@ running it in a real terminal. Both are worth knowing before you trust a PNG:
 - **Braille dots render as separated points, not filled rectangles.** `ansi2png.py`
   fills each dot's sub-rectangle, so a wire reads as a solid line in the PNG. A real
   terminal font draws each dot as a small mark with space around it, so the same wire
-  reads as a *dotted* line. The lines are genuinely contiguous — consecutive samples land
-  within one dot 99.7% of the time at every pane size — so this is the medium, not a
-  defect. It does mean **the PNG gate flatters braille line art**; judge solidity live.
+  reads as a *dotted* line. **The PNG gate flatters braille line art**; judge solidity
+  live, and read *Fonts and line height* below first — "live" is only meaningful once the
+  terminal is actually rendering braille.
+
+  Do **not** use sample contiguity to argue the wires are solid. An earlier version of
+  this note claimed "consecutive samples land within one dot 99.7% of the time," which is
+  Chebyshev distance ≤ 1 and therefore counts a *diagonal* step — two dots touching only
+  at a corner, which no font draws as connected — as contiguous. The metric cannot see
+  the defect it was being used to rule out. Measured properly, along each wire's run of
+  distinct dots: **88.3% orthogonal, 11.7% diagonal, 0.00% gaps** at 100×28 (84.2 / 15.5 /
+  0.29 at 210×60). Genuine breaks really are absent; the residual staircase is the
+  diagonal fraction, and it is small enough that 4-connected rasterization was measured
+  and rejected as not worth the extra ink.
 - **Temporal aliasing does not exist in a still.** A PNG has no next frame, so nothing
   about flicker, shimmer or dot-popping can appear in it. That is how a fixed angular
   rate shipped despite flickering badly on a large pane (see `Period`). For any animation
   on this rung, the live terminal is the only gate for motion.
+
+## Fonts and line height — check these before judging anything
+
+Braille is the one tier where **your terminal font decides how the output looks**, and
+two failure modes are common enough that you should rule them out before concluding
+anything about the animation itself. Both were hit on the development machine, and both
+were mistaken for rendering bugs.
+
+**1. Your monospace font may not contain braille at all.** U+2800–28FF is widely
+*supported* but not widely *included*. MesloLGS NF, JetBrains Mono and DejaVu Sans **Mono**
+all lack it. When the primary font has no glyph, fontconfig silently falls back to
+whatever does — typically **proportional** DejaVu Sans — and you get dots at the wrong
+pitch inside a monospace cell. Check before trusting your eyes:
+
+```sh
+fc-list ':charset=2800' family | sort -u        # who has braille at all
+fc-match "YourFont:charset=2800"                # what YOU actually get
+```
+
+If the second command names a different family than the first argument, you are looking
+at a fallback. Note `fc-list ':charset=2800:spacing=100'` is **not** a reliable filter —
+Iosevka carries braille but is tagged `spacing=90`, so that query hides it.
+
+Measured dot geometry, at em=256 (gap is edge-to-edge, in dot widths):
+
+| font | h-gap | v-gap | ink fill | `⣿` vs `M` advance |
+|---|---|---|---|---|
+| DejaVu Sans (a fallback, proportional) | 1.03 | 0.92 | 25.7% | 187.5 vs 220.9 — mismatched |
+| Iosevka | 0.78 | 0.72 | 27.4% | 128.0 vs 128.0 |
+| Cascadia Mono | **0.70** | **0.49** | **31.9%** | 150.0 vs 150.0 |
+
+**2. Even with a good font, the line box is usually taller than four dot rows.** The dot
+pitch inside a cell is set by the glyph; the cell height is set by the font's ascent plus
+descent. They do not match, and the leftover lands as a blank band **every 4 dot rows**,
+locked to the screen. A rotating object drifting through those fixed bands has dots wink
+out and back, which reads as jitter — it is easy to blame on the animation. Seam versus
+intra-cell gap, same fonts:
+
+| font | intra-cell gap | inter-line seam | ratio |
+|---|---|---|---|
+| DejaVu Sans | 34 | 49 | 1.44× |
+| Iosevka | 26 | 97 | 3.73× |
+| Cascadia Mono | 18 | 97 | **5.39×** |
+
+Note the ordering: **tighter dots make the banding worse**, because shrinking the gap
+inside the cell does nothing to the cell height. The best braille font is the worst
+offender here.
+
+The fix is to shrink the line box to exactly four dot pitches. In Alacritty that is
+`font.offset.y`, and you can test it per-launch without touching your config:
+
+```sh
+alacritty -o 'font.normal.family="Cascadia Mono"' -o 'font.size=18' -o 'font.offset.y=-9' \
+  -e sh -c 'cd examples/torus && go run ./cmd/preview'
+```
+
+The correction scales with font size, so `size` and `offset.y` move together; nudge by ±1
+until the bands snap out. Prefer a larger size regardless — below ~16px the dot pitch is
+2–3px and the lattice quantizes badly whatever you do.
 
 ## Tuning notes
 
@@ -151,11 +220,17 @@ and picked **by eye**. What the sweeps actually rejected:
   motion. Scaling restores 4.06 and drops churn 54.5% → 47.8%. The factor is capped at
   `maxRingScale` because rings cost frame time: uncapped, 400×110 lands at ~27 ms against
   a 33 ms budget, and a stutter is just a slower flicker.
-- **`shadeGamma` (2.2)** — added only after *measuring* the shade histogram. The raw
-  distribution piled up at 0.6–0.9 (most of a front-facing surface is both near-ish and
-  lit-ish), which spent the entire palette inside its magenta band: the torus rendered
-  as one flat pink mesh with no cyan anywhere. The gamma pulls the mids down into the
-  indigo and keeps the hot pink as a rare near-limb highlight.
+- **`shadeGamma` (1.3)** — shapes the mids down into the indigo so the hot pink stays a
+  rare near-limb highlight instead of the body colour. It wants a light touch. This note
+  previously justified **2.2** by claiming the raw shade "piled up at 0.6–0.9" and spent
+  the whole palette in the magenta band; **that does not reproduce.** Measured over 16
+  frames at matched phase at 100×28, the raw shade is already well spread — p10 0.17,
+  median 0.52, p90 0.84. Applying 2.2 to that crushed the median to **0.24**, left only
+  **10.8%** of lit cells reaching violet and **none at all** reaching the pink-white top
+  of the ramp, so the torus rendered as a near-uniform dark indigo. That mattered more
+  than it sounds: braille dots are *separated marks*, and dim low-contrast dots stop
+  grouping into lines at all — the "wires look dotty" complaint was substantially a
+  contrast problem, not a geometry one. At 1.3 the median is 0.43 and 23.2% reach violet.
 - **`depthNear` / `depthFar`** — same root cause. Because the back-face cull removes
   everything facing away, the visible surface only spans the *near* part of the object;
   mapping the palette across the full `[-maxR, +maxR]` wastes half the ramp.
