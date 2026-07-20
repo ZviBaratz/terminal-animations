@@ -33,7 +33,8 @@ jobs:
           set -euo pipefail
           # Without nullglob an unmatched glob expands to its own literal text,
           # so the loop below would run once with mod='examples/*/go.mod' and
-          # the count guard would never fire. Verified: bash reaches count=1.
+          # die on `cd examples/*` before the count guard is ever reached —
+          # failing on a confusing error instead of the intended one.
           shopt -s nullglob
 
           # Discovered, not hardcoded, so a new example is covered the moment it

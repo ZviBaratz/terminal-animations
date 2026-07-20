@@ -66,14 +66,6 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   is covered the moment it lands, and the discovered count is asserted non-zero — a glob that
   matched nothing would otherwise make the job pass vacuously.
 
-### Fixed
-
-- **The "nothing to publish" guard in `pages.yml` could never fire.** Without `shopt -s nullglob`,
-  an unmatched bash glob expands to its own literal text, so `for dir in examples/*/cmd/wasm`
-  runs once with a bogus path and the `${#names[@]} -eq 0` check sees one entry, not zero. The
-  job still failed — on `cd` to a nonexistent directory — but with a confusing error instead of
-  the intended one. Both workflows now set `nullglob`.
-
 ### Changed
 
 - **`ansi2png.py` rasterizes glyph ink coverage, so a density ramp reads as a ramp.**
@@ -170,6 +162,14 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   program `new-variant` has them write (it selects the variant and sweeps
   `LumRange`) instead of `cmd/fresco-demo`, which only cycles the shipped roster on
   a timer — a final look, not a per-variant tuning knob.
+
+### Fixed
+
+- **The "nothing to publish" guard in `pages.yml` could never fire.** Without `shopt -s nullglob`,
+  an unmatched bash glob expands to its own literal text, so `for dir in examples/*/cmd/wasm`
+  runs once with a bogus path and dies on `cd examples/*` under `set -e` — exiting before the
+  `${#names[@]} -eq 0` check is ever evaluated. The job still failed, just on a confusing `cd`
+  error rather than the intended "nothing to publish" one. Both workflows now set `nullglob`.
 
 ## [0.1.0] - 2026-07-18
 
