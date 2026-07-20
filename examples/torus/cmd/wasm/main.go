@@ -1,12 +1,20 @@
-// cmd/wasm — the browser harness entrypoint for the plasma animation.
+// cmd/wasm — the browser harness entrypoint for the torus animation.
 //
-// This is scripts/harness/main.go.tmpl with render() wired to plasma.Frame.
+// This is scripts/harness/main.go.tmpl with render() wired to torus.Frame.
 // Build and serve it with:
 //
-//	scripts/harness.sh examples/plasma      # → http://localhost:8731/?anim=plasma
+//	scripts/harness.sh examples/torus      # → http://localhost:8731/?anim=torus
 //
-// plasma is free-running and does NOT close a loop (unlike nebula), so the
-// harness's compare pane will never match at any Δ — that is correct, not a bug.
+// torus loops seamlessly, but its period is NOT a constant: Period(w, h) scales
+// the loop with the pane so per-frame dot travel stays roughly constant instead
+// of flickering in a big terminal. The harness reads it through animPeriod, so
+// the compare Δ re-derives every time you drag the pane or hit "fit to window" —
+// a Δ you noted at 100×28 (720) is wrong at any other size.
+//
+// This is also the only shipped animation on the braille rung, so it is what
+// exercises the painter's 2×4 dot path. Braille is drawn as filled sub-cell
+// rectangles, never as a font glyph: most machines have no monospace face with
+// braille coverage and would fall back to a proportional one, off the cell grid.
 //
 //go:build js && wasm
 
@@ -16,20 +24,17 @@ import (
 	"syscall/js"
 	"unsafe"
 
-	"github.com/ZviBaratz/terminal-animations/examples/plasma"
+	"github.com/ZviBaratz/terminal-animations/examples/torus"
 )
 
 func main() {
-	// plasma is a pure, free-running field: frame N is a function of (w, h, N).
+	// torus is a pure, seamlessly looping field: frame N is a function of (w, h, N).
 	render := func(w, h, tick int) (frame string, done bool) {
-		return plasma.Frame(w, h, tick), false
+		return torus.Frame(w, h, tick), false
 	}
 
-	// 0 — plasma's time is linear, so it drifts forever and never exactly repeats.
-	// This is what turns the compare pane's non-result into a stated property: the
-	// viewer disables Δ and says so, instead of letting you hunt for a match that
-	// does not exist.
-	period := func(w, h int) int { return 0 }
+	// Pane-dependent — see Period's doc comment. Recomputed on every resize.
+	period := func(w, h int) int { return torus.Period(w, h) }
 
 	// renderFrame(w, h, tick, out Int32Array) -> done bool
 	//

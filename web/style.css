@@ -1,0 +1,105 @@
+/* style.css — shared by the gallery and the viewer.
+ *
+ * Two rules govern everything here:
+ *
+ *   1. The chrome is two colours. Every saturated colour on the page comes from
+ *      the animation, through --accent, which each animation sets from its own
+ *      palette. The page recolours around whatever you are looking at.
+ *
+ *   2. Nothing frames an animation. craft.md asks that a piece read as "a window
+ *      onto something larger, not a lit box", and the edge vignette is what earns
+ *      that — so a border around the canvas would undo the animation's own work.
+ */
+
+:root {
+  /* Measured, not picked. Scanning every pixel of nebula's canvas border, the
+   * brightest is rgb(11,5,14) — so against pure black the canvas edge genuinely
+   * disappears and needs no mask, gradient or fade to hide it. */
+  --void: #000000;
+
+  --rule: #1b1826;  /* chrome lines: violet-cast, never neutral grey */
+  --ink:  #c8c2d8;  /* body text */
+  --dim:  #6b6480;  /* labels, measurements, anything secondary */
+
+  /* Overridden per animation from its meta.json. nebula's magenta is the default
+   * only because nebula is the animation the gallery leads with. */
+  --accent: #E673D9;
+
+  /* Departure Mono sits on an 11px grid (em = 550 units, design pixel = 50), so
+   * it is crisp ONLY at multiples of 11. That is the entire display scale; there
+   * is deliberately nothing between the steps. */
+  --display: 'Departure Mono', ui-monospace, 'Cascadia Mono', Menlo, monospace;
+  --body: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+  color-scheme: dark;
+}
+
+@font-face {
+  font-family: 'Departure Mono';
+  src: url('./fonts/departure-mono-subset.woff2') format('woff2');
+  font-display: swap;
+}
+@font-face {
+  font-family: 'JetBrains Mono';
+  src: url('./fonts/jetbrains-mono-regular-subset.woff2') format('woff2');
+  font-weight: 400;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'JetBrains Mono';
+  src: url('./fonts/jetbrains-mono-bold-subset.woff2') format('woff2');
+  font-weight: 700;
+  font-display: swap;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--void);
+  color: var(--ink);
+  font: 13px/1.5 var(--body);
+  -webkit-font-smoothing: antialiased;
+}
+
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+/* Keyboard focus must stay visible — the whole site is drivable from the keyboard
+ * and the accent is the only colour available to say where you are. */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* --- display type --------------------------------------------------------- */
+
+.wordmark, .display {
+  font-family: var(--display);
+  font-weight: 400;
+  letter-spacing: 0;
+}
+.d11 { font-size: 11px; }
+.d22 { font-size: 22px; }
+.d33 { font-size: 33px; }
+.d44 { font-size: 44px; }
+
+.dim { color: var(--dim); }
+.accent { color: var(--accent); }
+
+/* A key hint, as the BBS listing would set it. */
+kbd {
+  font: inherit;
+  color: var(--accent);
+}
+
+/* --- structure ------------------------------------------------------------ */
+
+/* Real box-drawing characters carry corners and short ornaments, where the glyph
+ * IS the information. Flexible-width rules are CSS borders, because a fixed run
+ * of U+2500 cannot reflow. */
+.rule {
+  border: 0;
+  border-top: 1px solid var(--rule);
+  margin: 0;
+}

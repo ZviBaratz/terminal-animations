@@ -25,6 +25,13 @@ func main() {
 		return nebula.Frame(w, h, tick), false
 	}
 
+	// A fixed loop, independent of the pane. Hardcoded rather than exported, since
+	// the loop length is a harness concern and not part of what nebula offers a
+	// caller — but that leaves this literal a hand-kept copy of the unexported
+	// `period` constant in nebula.go. TestLoopSeam pins that constant, not this
+	// copy, so nothing catches the two drifting apart. Change one, change both.
+	period := func(w, h int) int { return 1080 }
+
 	// renderFrame(w, h, tick, out Int32Array) -> done bool
 	//
 	// Decodes one frame into the caller's Int32Array (3 ints per cell: packed fg,
@@ -32,6 +39,10 @@ func main() {
 	// finished. The ANSI string stays the contract; this is only transport —
 	// marshaling a ~360KB string across the JS boundary every frame costs far
 	// more than a memcpy of the decoded grid.
+	//
+	// The decoded grid is held across calls rather than reallocated per frame; JS
+	// is single-threaded and these calls are serialised, so it needs no guarding.
+	var cells []int32
 	js.Global().Set("renderFrame", js.FuncOf(func(_ js.Value, args []js.Value) any {
 		if len(args) < 4 {
 			return false
@@ -42,7 +53,16 @@ func main() {
 		}
 
 		frame, done := render(w, h, tick)
-		cells := make([]int32, w*h*int32sPerCell)
+
+		// Reuse the grid across frames, growing only when the pane does. A fresh
+		// make() per frame is ~110KB of garbage at 192x48, or >3MB/s at 30fps —
+		// enough to keep the Go heap inflated and the collector busy for no gain.
+		// Mirrors Pane.ensure on the JS side, which grows the same way.
+		if n := w * h * int32sPerCell; cap(cells) < n {
+			cells = make([]int32, n)
+		} else {
+			cells = cells[:n]
+		}
 		decode(frame, w, h, cells)
 
 		// CopyBytesToJS wants a byte view of the int32 slice. Go/wasm is always
@@ -50,6 +70,23 @@ func main() {
 		raw := unsafe.Slice((*byte)(unsafe.Pointer(&cells[0])), len(cells)*4)
 		js.CopyBytesToJS(js.Global().Get("Uint8Array").New(args[3].Get("buffer")), raw)
 		return done
+	}))
+
+	// animPeriod(w, h) -> loop length in ticks, or 0 for one that never repeats.
+	//
+	// The viewer drives the tick slider's range and the compare Δ from this. Taking
+	// the pane matters: a loop whose length scales with the pane re-derives on every
+	// resize, instead of leaving a Δ that was right at one size and silently wrong
+	// at the next.
+	js.Global().Set("animPeriod", js.FuncOf(func(_ js.Value, args []js.Value) any {
+		if len(args) < 2 {
+			return 0
+		}
+		w, h := args[0].Int(), args[1].Int()
+		if w <= 0 || h <= 0 {
+			return 0
+		}
+		return period(w, h)
 	}))
 
 	// Signal readiness, then park — the Go runtime must stay alive to service calls.

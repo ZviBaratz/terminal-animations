@@ -62,10 +62,21 @@ jobs:
             exit 1
           fi
 
-          # The manifest drives the harness's animation picker; without it the
-          # page can only show whatever ?anim= names you already know.
-          printf '%s\n' "${names[@]}" | jq -R . | jq -sc . > web/animations.json
-          echo "manifest: $(cat web/animations.json)"
+          # The same script scripts/harness.sh uses, so the manifest a visitor gets
+          # and the one you develop against cannot drift. It merges each
+          # animation's meta.json — title, blurb, resolutions, accent, loop shape —
+          # keyed on the modules that actually built, so the index can never link
+          # to a viewer with no module behind it.
+          python3 scripts/manifest.py .
+          jq -e . web/animations.json > /dev/null
+          echo "manifest: $(jq -c 'keys' web/animations.json)"
+
+      # Posters are what a visitor sees before the ~2MB module lands, and the
+      # whole experience under prefers-reduced-motion or on a phone, where the
+      # module is never fetched unless asked for. Rendered by ansi2png.py, which
+      # shares the browser painter's sub-cell model.
+      - name: Render posters
+        run: scripts/posters.sh
 
       - uses: actions/upload-pages-artifact@v3
         with:

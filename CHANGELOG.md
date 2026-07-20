@@ -65,6 +65,36 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   `scripts` runs `ansi2png_test.py`. Modules are discovered rather than listed, so a new example
   is covered the moment it lands, and the discovered count is asserted non-zero — a glob that
   matched nothing would otherwise make the job pass vacuously.
+- **A gallery (`web/index.html`) and a viewer (`web/view.html`), split by what each has to be
+  good at.** The page a visitor landed on was the authoring harness: two control bars over a
+  small canvas, ~60% empty gutter, no type hierarchy. The gallery now ships **zero WASM**, is
+  mobile-first and indexable, and presents the resolution ladder *including its gaps* — rungs
+  2, 3 and 4 have nothing on them and say so. The ladder is a *view* of one label dimension:
+  an animation carries a list of `resolutions` and lists under every rung it uses, so a piece
+  that combines rungs is not forced to pick one, and a resolution off the ladder gets an
+  *unclassified* row rather than silently vanishing. Each rung's sample is **drawn** through
+  `web/glyphs.js` at that rung's real sub-cell geometry, because no font has sextant, octant or
+  braille coverage (checked, not assumed) and a typeset ladder would have been three rows of
+  tofu. The viewer is full-bleed and borderless — `craft.md` asks that a piece read as "a window
+  onto something larger, not a lit box" — and the authoring harness rides along with it behind
+  `?dev`, so what you tune is what a visitor sees, to the pixel. Also closes two long-standing
+  gaps: `prefers-reduced-motion` and small screens now hold the ~2MB module back entirely rather
+  than merely pausing, leaving the poster on screen.
+- **`web/glyphs.js` + `web/glyphs.test.js`** — the sub-cell geometry model, extracted as pure
+  integer tables with no DOM, shared by the painter, the gallery samples and the tests, and
+  pinned against `scripts/ansi2png.py`.
+- **`web/ladder.js` + `web/ladder.test.js`** — the resolution ladder as a pure, DOM-free label
+  dimension: the rung table, the many-to-many grouping (one animation under every rung it uses),
+  and the viewer's caption names, shared by the gallery and the viewer and tested so an off-ladder
+  resolution cannot silently drop an animation.
+- **`examples/torus/cmd/wasm`**, so the top rung of the ladder is no longer the one animation the
+  browser cannot open.
+- **`scripts/manifest.py` and `scripts/posters.sh`**, plus a `meta.json` per animation — title,
+  blurb, `resolutions`, accent and loop shape, merged into `animations.json` at build time, and
+  still-frame posters rendered through `ansi2png.py` so the gallery needs neither WASM nor a
+  running animation to show what something looks like.
+- **Self-hosted type: Departure Mono + JetBrains Mono**, both OFL 1.1 with no Reserved Font Name
+  (verified in the bundled licences, not the project pages), subsetted to 37KB total.
 
 ### Changed
 
@@ -197,6 +227,11 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   program `new-variant` has them write (it selects the variant and sweeps
   `LumRange`) instead of `cmd/fresco-demo`, which only cycles the shipped roster on
   a timer — a final look, not a per-variant tuning knob.
+- **A new `animPeriod(w, h)` global replaces the loop length the page used to hardcode.**
+  `index.html` carried a nebula-shaped `1080` in two places, which was wrong for anything else.
+  It takes the pane because `torus.Period(w, h)` scales with it, and `0` now means free-running —
+  which turns plasma's compare pane from a confusing non-result into a stated property: the
+  viewer disables Δ and says why, instead of letting you hunt for a match that cannot exist.
 
 ### Fixed
 
@@ -205,6 +240,27 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   runs once with a bogus path and dies on `cd examples/*` under `set -e` — exiting before the
   `${#names[@]} -eq 0` check is ever evaluated. The job still failed, just on a confusing `cd`
   error rather than the intended "nothing to publish" one. Both workflows now set `nullglob`.
+- **The browser painter did not match `ansi2png.py`, in two ways that predate braille.**
+  `ansi2png.py`'s `QUAD` models 15 glyphs; the page modelled 9 — `▙▚▛▜▞▟` cannot be expressed as
+  one `[x, y, w, h]` rect, so they fell through to `ctx.fillText`, the ~70ms/frame path the
+  ImageData rewrite exists to escape. Separately, the truncate/`Math.ceil` sub-cell rule
+  disagreed with the PNG by one pixel at odd cell sizes, against what `ansi2png_test.py` pins.
+  Both were invisible because nebula and plasma emit only `▀` — a *vertical* split, where the
+  cell width never mattered. Fixed by extracting the model into `web/glyphs.js` and replacing
+  the rect lookup with a mask + row-band decomposition shared by both tiers; geometry now
+  follows `_imap` exactly. On a synthetic frame of all 15 quadrants plus 15 braille patterns at
+  `cw=7`/`ch=14` — odd, the discriminating case, since at even widths a correct and an incorrect
+  split look identical — the new painter differs from the export in **0 of 2940** pixels, the
+  old one in **1018**, across 24 of 30 cells.
+- **The compare pane silently ignored a typed Δ.** The generic `input` listener ran
+  `readControls()`, which re-derives Δ, *before* the flag marking Δ hand-edited was set, so a
+  typed value reverted inside the same event. This made the seam check pass vacuously: Δ=720
+  reported "seamless" and so did Δ=719, which should be impossible. Δ is now on its own listener.
+- **`scripts/posters.sh` rendered tick 1 whenever a poster tick was 0.** `cmd/preview` accepts a
+  stride only when it is `> 0`, so `frames 2 0` silently left the stride at 1 and the
+  keep-the-second-frame pipeline returned tick 1. Latent for the shipped animations, which all
+  declare a non-zero `posterTick`, but it would have fired for any animation with no `meta.json`
+  — a case `manifest.py` explicitly supports. Tick 0 now asks for a single frame instead.
 
 ## [0.1.0] - 2026-07-18
 

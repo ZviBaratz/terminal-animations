@@ -26,14 +26,20 @@ echo "building $NAME -> web/$NAME.wasm"
 (cd "$ROOT/$ANIM" && GOOS=js GOARCH=wasm go build -o "$ROOT/web/$NAME.wasm" ./cmd/wasm)
 echo "  $(du -h "$ROOT/web/$NAME.wasm" | cut -f1) ($(gzip -9 -c "$ROOT/web/$NAME.wasm" | wc -c | awk '{printf "%dKB", $1/1024}') gzipped)"
 
-# Manifest of everything built so far, so the page's picker matches what the
-# pages workflow produces. Built from the .wasm files present rather than from
-# examples/, since only what you've actually built is servable.
-( cd "$ROOT/web" && printf '%s\n' *.wasm \
-    | sed 's/\.wasm$//' \
-    | awk 'BEGIN{printf "["} {printf "%s\"%s\"", (NR>1 ? "," : ""), $0} END{print "]"}' \
-    > animations.json )
-echo "  built: $(cat "$ROOT/web/animations.json")"
+# Manifest of everything built so far, so the page matches what the pages workflow
+# produces. Keyed on the .wasm files present rather than on examples/, since only
+# what you have actually built is servable — then merged with each animation's
+# meta.json, which is where the gallery gets its titles, resolutions and accents.
+python3 "$ROOT/scripts/manifest.py" "$ROOT"
 
-echo "serving http://localhost:$PORT/?anim=$NAME  (Ctrl-C to stop)"
+# Posters belong to the pages build, not the authoring loop: each one costs a full
+# preview run, and the viewer treats a missing poster as "start on black" rather
+# than as an error. Set POSTERS=1 when you want to check the still a visitor sees
+# before the module lands.
+if [[ "${POSTERS:-}" == "1" ]]; then
+  "$ROOT/scripts/posters.sh" "$NAME"
+fi
+
+echo "serving http://localhost:$PORT/view.html?anim=$NAME&dev  (Ctrl-C to stop)"
+echo "  gallery: http://localhost:$PORT/"
 cd "$ROOT/web" && exec python3 -m http.server "$PORT"
