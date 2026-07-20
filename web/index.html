@@ -36,6 +36,8 @@
   <span class="meta">status: <span id="status">loading wasm…</span></span>
   <span class="meta">pane: <span id="dims">—</span></span>
   <span class="meta"><span id="perf">—</span></span>
+  <span class="meta" id="loop-note"></span>
+  <span class="err" id="deferred"></span>
 </header>
 
 <div id="controls">
@@ -47,13 +49,17 @@
   <button id="play">▶ play</button>
   <button id="step">step</button>
   <label>fps <input type="number" id="fps" value="30" min="1" max="120"></label>
-  <label>tick <input type="range" id="tick" value="0" min="0" max="1080"></label>
+  <!-- max and Δ are both filled in from the module's animPeriod(w, h) once it is
+       up: a constant for nebula, 0 for free-running plasma, and pane-dependent
+       for torus, where they re-derive on every resize. -->
+  <label>tick <input type="range" id="tick" value="0" min="0" max="1"></label>
   <span class="meta" id="tick-label">0</span>
 
-  <!-- Δ defaults to nebula's period (1080): the compare pane should be
-       pixel-identical, which is TestLoopSeam made visible. -->
+  <!-- Set Δ = the period and the two panes must be pixel-identical, which is
+       TestLoopSeam made visible. Disabled for a free-running animation, where no
+       Δ can ever match. -->
   <label><input type="checkbox" id="compare-toggle"> compare</label>
-  <label>+Δ <input type="number" id="offset" value="1080"></label>
+  <label>+Δ <input type="number" id="offset" value="0"></label>
 </div>
 
 <main>

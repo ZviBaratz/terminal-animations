@@ -44,7 +44,12 @@ class Pane {
   draw(w, h, tick, cw, ch) {
     if (typeof renderFrame !== 'function') return false;
     const buf = this.ensure(w, h);
+    // Timed separately from the paint below. Frame() and the painter fail in
+    // different ways and are tuned by different people; a single combined number
+    // cannot tell you which side moved.
+    const tRender = performance.now();
     const done = renderFrame(w, h, tick, buf);
+    this.renderMs = performance.now() - tRender;
 
     const { canvas, ctx } = this;
     const pxW = w * cw, pxH = h * ch;
@@ -161,16 +166,55 @@ const el = (id) => document.getElementById(id);
 const main = new Pane(el('main-canvas'));
 const compare = new Pane(el('compare-canvas'));
 
-const state = { w: 100, h: 30, tick: 0, fps: 30, playing: false, cell: 8, compare: false, offset: 0 };
-let lastFrameTime = 0, fpsEMA = 0;
+const state = { w: 100, h: 30, tick: 0, fps: 30, playing: false, cell: 8, compare: false, offset: 0, period: -1 };
+let lastFrameTime = 0, renderEMA = 0, paintEMA = 0;
+
+// Set once the user types a Δ of their own, so the auto-derived value stops
+// overwriting it. Without this, torus's per-resize recompute would silently stomp
+// a hand-entered Δ the moment you drag the pane — which is exactly the workflow
+// the compare pane exists for.
+let deltaTouched = false;
+
+// The module may be older than this page: web/*.wasm is gitignored and a browser
+// can serve a cached one. Without this guard a missing export throws inside
+// readControls and the page renders nothing at all.
+const periodFor = (w, h) =>
+  typeof animPeriod === 'function' ? (animPeriod(w, h) | 0) : -1;
+
+// Drive the tick slider's range and the compare Δ from the animation itself,
+// rather than the nebula-shaped constants this page used to hardcode.
+function applyPeriod() {
+  const p = state.period;
+  const toggle = el('compare-toggle'), offset = el('offset');
+
+  if (p > 0) {
+    el('tick').max = p;
+    toggle.disabled = offset.disabled = false;
+    el('loop-note').textContent = `loops every ${p} ticks`;
+    if (!deltaTouched) offset.value = p;
+  } else if (p === 0) {
+    // Free-running. Say so, rather than leaving a Δ that can never match.
+    toggle.checked = false;
+    toggle.disabled = offset.disabled = true;
+    el('loop-note').textContent = 'free-running — never repeats, so no Δ matches';
+  } else {
+    el('loop-note').textContent = '';
+  }
+}
 
 function readControls() {
   state.w = Math.max(1, +el('width').value | 0);
   state.h = Math.max(1, +el('height').value | 0);
   state.fps = Math.max(1, +el('fps').value | 0);
   state.cell = Math.max(2, +el('cell').value | 0);
+
+  // Recomputed on every pane change: torus's loop scales with the pane, so a Δ
+  // that was right at one size is wrong at the next.
+  state.period = periodFor(state.w, state.h);
+  applyPeriod();
+
   state.offset = +el('offset').value | 0;
-  state.compare = el('compare-toggle').checked;
+  state.compare = el('compare-toggle').checked && state.period !== 0;
   el('compare-wrap').style.display = state.compare ? 'block' : 'none';
   el('dims').textContent = `${state.w}×${state.h}`;
 }
@@ -181,10 +225,20 @@ function paint() {
   if (state.compare) {
     compare.draw(state.w, state.h, state.tick + state.offset, state.cell, state.cell * 2);
   }
-  const ms = performance.now() - t0;
-  fpsEMA = fpsEMA ? fpsEMA * 0.9 + ms * 0.1 : ms;
+  // main.renderMs is the Go call; the rest of the wall time is paint.
+  const total = performance.now() - t0;
+  const render = main.renderMs || 0;
+  renderEMA = renderEMA ? renderEMA * 0.9 + render * 0.1 : render;
+  paintEMA = paintEMA ? paintEMA * 0.9 + (total - render) * 0.1 : total - render;
+
   el('tick-label').textContent = state.tick;
-  el('perf').textContent = `${fpsEMA.toFixed(1)} ms/frame`;
+  el('perf').textContent =
+    `render ${renderEMA.toFixed(1)} / paint ${paintEMA.toFixed(1)} ms`;
+
+  // Any cell on the font path neither matches the PNG export nor stays on the
+  // fast path, so make it loud rather than letting it show up as a mystery stall.
+  const d = main.deferred || 0;
+  el('deferred').textContent = d ? `⚠ ${d} glyphs via font` : '';
   return done;
 }
 
@@ -199,7 +253,8 @@ function loop(now) {
   if (now - lastFrameTime < 1000 / state.fps) return;
   lastFrameTime = now;
   state.tick++;
-  el('tick').value = state.tick % +el('tick').max;
+  // `|| 1` guards the free-running case, where max is 0 and the modulo is NaN.
+  el('tick').value = state.tick % (+el('tick').max || 1);
   // A resolving animation reports done; park on the final frame rather than
   // running past the end of it.
   if (paint()) stop();
@@ -215,9 +270,17 @@ function fitToWindow() {
   paint();
 }
 
-for (const id of ['width', 'height', 'fps', 'cell', 'offset', 'compare-toggle']) {
+for (const id of ['width', 'height', 'fps', 'cell', 'compare-toggle']) {
   el(id).addEventListener('input', () => { readControls(); paint(); });
 }
+// Δ is handled on its own rather than in the loop above, because the flag has to
+// be set BEFORE readControls runs — otherwise applyPeriod overwrites the value
+// being typed in the same event, and a hand-entered Δ silently reverts.
+el('offset').addEventListener('input', () => {
+  deltaTouched = true;
+  readControls();
+  paint();
+});
 el('tick').addEventListener('input', (e) => {
   stop();
   state.tick = +e.target.value;
@@ -229,10 +292,17 @@ el('play').addEventListener('click', () => {
 });
 el('fit').addEventListener('click', fitToWindow);
 el('step').addEventListener('click', () => { state.tick++; paint(); });
+// Keep the slider in step with keyboard scrubbing — otherwise the thumb sits
+// wherever it last was and stops telling you where in the loop you are.
+function seek(tick) {
+  state.tick = Math.max(0, tick);
+  el('tick').value = state.tick % (+el('tick').max || 1);
+  paint();
+}
 window.addEventListener('keydown', (e) => {
   if (e.key === ' ') { e.preventDefault(); el('play').click(); }
-  if (e.key === 'ArrowRight') { state.tick++; paint(); }
-  if (e.key === 'ArrowLeft') { state.tick = Math.max(0, state.tick - 1); paint(); }
+  if (e.key === 'ArrowRight') seek(state.tick + 1);
+  if (e.key === 'ArrowLeft') seek(state.tick - 1);
 });
 
 // Called from Go once the runtime is up and renderFrame is installed.

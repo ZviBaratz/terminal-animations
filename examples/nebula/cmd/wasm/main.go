@@ -25,6 +25,12 @@ func main() {
 		return nebula.Frame(w, h, tick), false
 	}
 
+	// A fixed loop, independent of the pane. Mirrors the unexported `period`
+	// constant in nebula.go — kept in step by TestLoopSeam, and hardcoded here
+	// rather than exported, since the loop length is a harness concern and not
+	// part of what nebula offers a caller.
+	period := func(w, h int) int { return 1080 }
+
 	// renderFrame(w, h, tick, out Int32Array) -> done bool
 	//
 	// Decodes one frame into the caller's Int32Array (3 ints per cell: packed fg,
@@ -50,6 +56,23 @@ func main() {
 		raw := unsafe.Slice((*byte)(unsafe.Pointer(&cells[0])), len(cells)*4)
 		js.CopyBytesToJS(js.Global().Get("Uint8Array").New(args[3].Get("buffer")), raw)
 		return done
+	}))
+
+	// animPeriod(w, h) -> loop length in ticks, or 0 for one that never repeats.
+	//
+	// The viewer drives the tick slider's range and the compare Δ from this. Taking
+	// the pane matters: a loop whose length scales with the pane re-derives on every
+	// resize, instead of leaving a Δ that was right at one size and silently wrong
+	// at the next.
+	js.Global().Set("animPeriod", js.FuncOf(func(_ js.Value, args []js.Value) any {
+		if len(args) < 2 {
+			return 0
+		}
+		w, h := args[0].Int(), args[1].Int()
+		if w <= 0 || h <= 0 {
+			return 0
+		}
+		return period(w, h)
 	}))
 
 	// Signal readiness, then park — the Go runtime must stay alive to service calls.
