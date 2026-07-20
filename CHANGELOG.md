@@ -61,6 +61,40 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Changed
 
+- **`examples/torus` now uses the palette it was designed around: `shadeGamma` 2.2 → 1.3.**
+  (Shade median 0.24 → 0.43; the *rendered* gain is smaller than that ratio because the
+  palette is non-linear — mean lit luminance in the demo recording rises 43 → 51.) The old
+  value was justified by a note claiming the raw shade "piles up at 0.6–0.9" and would
+  spend the whole palette in its magenta band. Measured over 16 frames at matched phase
+  at 100×28, that does not reproduce — the raw shade is already well spread (p10 0.17,
+  median 0.52, p90 0.84). Applying 2.2 crushed the median to **0.24**, left only **10.8%**
+  of lit cells reaching violet and **none** reaching the pink-white top of the ramp, so
+  the designed iridescent palette rendered as near-uniform dark indigo. Because braille
+  dots are separated marks, dim low-contrast dots stop grouping into lines — this read as
+  "the wires look dotty" and sent an investigation after a rasterization bug that did not
+  exist. At 1.3 the median is 0.43 and 23.2% reach violet.
+
+- **Braille's font dependency is now documented on the tier, not just in one example.**
+  `techniques.md` and `examples/torus/README.md` gain the two traps that make a live
+  braille gate untrustworthy: many popular monospace fonts (MesloLGS NF, JetBrains Mono,
+  DejaVu Sans **Mono**) **contain no braille at all** and fall back silently to
+  proportional DejaVu Sans; and even a braille-carrying font has a **line box taller than
+  four dot rows**, which puts a screen-locked blank band every 4 dot rows that moving art
+  drifts through as apparent jitter. Counter-intuitively, the tighter a font's dots the
+  worse the banding — Cascadia Mono's seam is 5.4× its intra-cell gap versus DejaVu's
+  1.4× — because shrinking the gap inside a cell does nothing to the cell height. Both
+  docs carry measured geometry tables and a per-launch Alacritty test command. Note
+  `fc-list ':charset=2800:spacing=100'` is **not** a valid check: Iosevka has braille and
+  is tagged `spacing=90`.
+
+- **A false solidity claim is retracted from `examples/torus/README.md`.** It asserted the
+  wires were contiguous because "consecutive samples land within one dot 99.7% of the
+  time" — that is Chebyshev distance ≤ 1, which counts a *diagonal* step as connected even
+  though no font draws corner-touching dots as joined, so the metric could not see the
+  defect it was cited to rule out. It also had no test behind it. Measured along each
+  wire's run of distinct dots: **88.3% orthogonal, 11.7% diagonal, 0.00% gaps** at 100×28.
+  Genuine breaks are absent; 4-connected rasterization was measured and rejected.
+
 - **`ansi2png.py` rasterizes glyph ink coverage, so a density ramp reads as a ramp.**
   Every printable glyph was painted as a flat block of its foreground colour, so `·` and
   `@` rasterized identically. For an engine that splits brightness between glyph density
@@ -80,6 +114,7 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   vanishing into an invented coverage. **On by default**, not behind a flag: a correctness
   gate whose correctness depends on remembering a flag is a footgun. That does change
   output for text — a typewriter's letters now render blended rather than solid.
+
 - **The resolution ladder now states which rungs the headless gate can actually see.**
   `techniques.md`'s ladder table gains a **Headless gate** column, because the skill
   otherwise pushes authors *up* the ladder into a blind spot: `record-headless.sh` builds

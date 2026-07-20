@@ -103,11 +103,16 @@ const (
 	depthNear = -1.00 // rz that gets the hot near colour
 	depthFar  = 0.35  // rz that gets the deep far colour
 
-	// The raw shade piles up around 0.6–0.9 (most of a front-facing surface is both
-	// near-ish and lit-ish), which would spend the whole palette in its magenta band.
-	// >1 pulls the mids down into the indigo/violet so the full ramp gets used and the
-	// hot pink stays a rare near-limb highlight rather than the body colour.
-	shadeGamma = 2.20
+	// >1 pulls the mids down into the indigo/violet so the hot pink stays a rare
+	// near-limb highlight rather than the body colour. Keep it gentle: the raw shade
+	// is already well spread (measured over 16 frames at matched phase, 100×28 —
+	// p10 0.17, median 0.52, p90 0.84), so it needs shaping, not crushing. An earlier
+	// 2.20 here — justified by a claim that the raw shade "piles up around 0.6–0.9",
+	// which does not reproduce — pushed the median to 0.24 and stranded the top of the
+	// palette: only 10.8% of lit cells reached violet and none reached the pink-white.
+	// The wires went dim enough that on a real terminal the dots stopped reading as
+	// lines at all. 1.30 leaves the median at 0.43 and 23% reaching violet.
+	shadeGamma = 1.30
 
 	lightMix = 0.40 // how much of the shade is Lambert vs. raw depth (0 = pure depth)
 	lightX   = -0.4 // light direction, pointing from the surface toward the light…
