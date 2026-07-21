@@ -1,0 +1,9 @@
+{
+  "title": "bust",
+  "blurb": "a marble bust silkscreened under a slow, drifting colour wash",
+  "resolutions": [1],
+  "accent": "#8469DB",
+  "loop": "seamless · 720 ticks",
+  "note": "accent is the violet ink the wash shows at posterTick 450 — the top band of the analogous violet station, and the vaporwave-bust look the piece is named for; geometry is frozen and the 720-tick loop is pane-independent, so the same tick reads in both poster shapes — no posterTickPortrait needed",
+  "posterTick": 450
+}

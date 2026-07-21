@@ -146,6 +146,16 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   resolution cannot silently drop an animation.
 - **`examples/torus/cmd/wasm`**, so the top rung of the ladder is no longer the one animation the
   browser cannot open.
+- **`examples/bust/cmd/wasm`, and a `meta.json` for `bust` and `saucer`** — so every example now
+  both opens in the browser and carries the metadata the gallery reads, making the "`meta.json` per
+  animation" below literally true. `bust` shipped only a terminal `cmd/preview`, so the Pages
+  build — keyed on the `.wasm` modules that compile — never saw it and it fell off the manifest
+  silently; `saucer` opened but rode the bare defaults (its name as title, rung 1, no blurb or
+  accent). Each meta now carries a title, blurb, `resolutions`, accent and loop shape, plus a
+  hand-picked `posterTick` for the still shown before the module loads: `bust` at its violet
+  vaporwave attitude (tick 450, accent `#8469DB` — the wash's own violet ink), `saucer` at a lit
+  flyby that reads in both the landscape and portrait poster panes (tick 260, accent `#7DCFFF` from
+  its aurora palette, which is also the saucer's dome glass).
 - **`scripts/manifest.py` and `scripts/posters.sh`**, plus a `meta.json` per animation — title,
   blurb, `resolutions`, accent and loop shape, merged into `animations.json` at build time, and
   still-frame posters rendered through `ansi2png.py` so the gallery needs neither WASM nor a

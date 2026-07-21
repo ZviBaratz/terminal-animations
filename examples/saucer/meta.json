@@ -1,0 +1,9 @@
+{
+  "title": "saucer",
+  "blurb": "a flying saucer drifts over an aurora night sky",
+  "resolutions": [1],
+  "accent": "#7DCFFF",
+  "loop": "free-running — never repeats",
+  "note": "accent is skyPalette.A3 (#7dcfff) — the cyan the aurora's brightest folds glow, and the saucer's own dome glass, so it ties the subject to the sky; posterTick 260 lands a lit flyby in both the landscape (190x48) and portrait (65x70) poster panes, so no posterTickPortrait is needed",
+  "posterTick": 260
+}
