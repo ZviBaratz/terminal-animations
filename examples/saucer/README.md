@@ -81,11 +81,11 @@ so it ships a `go.sum`; `go test` / `go run` fetch fresco from the module proxy 
 
 `docs/saucer.gif` was produced with the plugin's **own** headless pipeline — no `vhs`:
 dump frames → rasterize each with `ansi2png.py` → assemble with `ffmpeg` using **Bayer**
-(ordered) dithering, stable under motion. The dump spans exactly one pass *slot* — quiet starry
-sky → the saucer flyby (this pass beams) → quiet sky — so it **loops cleanly forward** with no
-ping-pong, since both ends are quiet night. (A free-running field with no such quiet frame is
-ping-ponged instead, as [`plasma`](../plasma) is; a true θ-loop like [`nebula`](../nebula) needs
-neither.)
+(ordered) dithering, stable under motion. It is recorded at **true 1:1 speed** — one tick per
+frame at 30 fps, exactly what `go run ./cmd/preview` shows — trimmed to a single flyby with a
+little quiet night on each side, so it **loops cleanly forward** with no ping-pong (both ends are
+quiet sky). (A free-running field with no such quiet frame is ping-ponged instead, as
+[`plasma`](../plasma) is; a true θ-loop like [`nebula`](../nebula) needs neither.)
 
 ## Tuning notes
 
@@ -101,3 +101,9 @@ The taste constants at the top of `saucer.go` were swept and picked **by eye** a
   deepened night (`auroraGamma`) precisely because `ansi2png` (like a real terminal) weighs a glyph
   by its *ink coverage* — a faint dot is almost nothing. Both are the "watch it move, in colour —
   the formula won't tell you" loop the plugin preaches.
+- **Sub-cell motion for a moving sprite.** A lazy drift is slower than one cell per frame, so
+  snapping the disc to integer columns makes it stutter. The fix is to render the sprite at
+  **half-cell** horizontal resolution: `spriteAt` samples the disc at the left and right half of
+  each cell and packs them into `▌ ▐ █` — the same 2×2 sub-cell glyphs `ansi2png` and the browser
+  harness resolve — so the saucer advances in half-cell steps and reads as a glide. (The vertical
+  bob is kept to a single gentle arc for the same reason: `bobCycles = 3` read as jitter.)

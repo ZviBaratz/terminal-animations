@@ -67,8 +67,8 @@ const (
 	crossMax  = 300  // most ticks a pass takes to cross (slowest, laziest saucer)
 	bandTop   = 0.12 // highest the saucer flies (fraction of pane height)
 	bandBot   = 0.52 // lowest it flies
-	bobAmp    = 1.4  // vertical bob amplitude in cells
-	bobCycles = 3.0  // how many bob cycles across one pass
+	bobAmp    = 1.0  // vertical bob amplitude in cells
+	bobCycles = 1.0  // gentle single arc across one pass (more reads as jitter, not drift)
 	beamProb  = 0.5  // fraction of passes that lower a tractor beam
 	passSeed  = 1947 // decorrelates the per-pass hash
 
@@ -103,8 +103,9 @@ var skyPalette = fresco.Palette{
 //	D = dome glass (cyan-white)   B = body highlight (bright silver)
 //	M = hull (silver)             o/O = blinking underlights
 //
-// Width-1 glyphs only; the solid parts paint a full block so the disc reads as a
-// crisp cartoon silhouette rather than an ASCII sketch (craft.md: bold reads in a grid).
+// Width-1 glyphs only; the solid parts paint blocks (full, or half at the edges when the
+// disc sits mid-cell — see spriteAt) so it reads as a crisp cartoon silhouette rather than
+// an ASCII sketch (craft.md: bold reads in a grid).
 var saucerSprite = []string{
 	"    DDDDD    ",
 	"  BBBBBBBBB  ",
@@ -295,33 +296,61 @@ func isStar(c, r int, t float64) (float64, bool) {
 	return starBase * amp * tw, true
 }
 
-// spritePixel returns the colour and glyph of the saucer at sprite-local (sr, sc), or
+// spriteCellColor returns the saucer's colour at sprite-local integer cell (sr, sc), or
 // ok=false for a transparent cell. The underlights blink through a warm cycle keyed to
-// tick and column, so the disc reads as a lit, moving craft.
-func spritePixel(sr, sc, tick int) (rgb, rune, bool) {
+// tick and column, so the disc reads as a lit craft. It carries no glyph: the renderer
+// samples this at *two* sub-columns per output cell (see spriteAt) so the disc can sit at
+// half-cell horizontal positions, which is what makes the drift read as smooth rather
+// than snapping a whole cell at a time.
+func spriteCellColor(sr, sc, tick int) (rgb, bool) {
 	if sr < 0 || sr >= spriteH {
-		return rgb{}, ' ', false
+		return rgb{}, false
 	}
 	row := []rune(saucerSprite[sr])
 	if sc < 0 || sc >= len(row) {
-		return rgb{}, ' ', false
+		return rgb{}, false
 	}
 	switch row[sc] {
 	case 'D': // dome glass
-		return rgb{0.80, 0.94, 1.00}, '█', true
+		return rgb{0.80, 0.94, 1.00}, true
 	case 'B': // body highlight — the brightest band, catches the sky's light
-		return rgb{0.90, 0.93, 1.00}, '█', true
+		return rgb{0.90, 0.93, 1.00}, true
 	case 'M': // hull
-		return rgb{0.70, 0.76, 0.90}, '█', true
+		return rgb{0.70, 0.76, 0.90}, true
 	case 'o', 'O': // blinking underlights: red → amber → green
 		switch ((tick / blinkRate) + sc) % 3 {
 		case 0:
-			return rgb{1.00, 0.42, 0.36}, '●', true
+			return rgb{1.00, 0.42, 0.36}, true
 		case 1:
-			return rgb{1.00, 0.84, 0.32}, '●', true
+			return rgb{1.00, 0.84, 0.32}, true
 		default:
-			return rgb{0.48, 1.00, 0.60}, '●', true
+			return rgb{0.48, 1.00, 0.60}, true
 		}
+	}
+	return rgb{}, false
+}
+
+// spriteAt renders the saucer into one output cell (r, c) at the sub-cell-precise position
+// (cxLeft is the disc's left edge in continuous cell coordinates; topRow its integer top).
+// It samples the sprite at the left- and right-half of the cell and packs the two into a
+// half-block glyph — █ when both halves are the saucer, ▌ or ▐ when only one is — so the
+// disc advances in half-cell steps instead of whole ones. The colour is the brighter of
+// the two covered halves (within a sprite row the colour is uniform, so this only matters
+// at a light/gap boundary, where taking the lit half keeps the underlights crisp).
+func spriteAt(r, c, tick int, cxLeft float64, topRow int) (rgb, rune, bool) {
+	sr := r - topRow
+	colL, okL := spriteCellColor(sr, int(math.Floor(float64(c)+0.25-cxLeft)), tick)
+	colR, okR := spriteCellColor(sr, int(math.Floor(float64(c)+0.75-cxLeft)), tick)
+	switch {
+	case okL && okR:
+		if luma(colR) > luma(colL) {
+			return colR, '█', true
+		}
+		return colL, '█', true
+	case okL:
+		return colL, '▌', true
+	case okR:
+		return colR, '▐', true
 	}
 	return rgb{}, ' ', false
 }
@@ -381,8 +410,9 @@ func Frame(w, h, tick int) string {
 	t := float64(tick)
 	W, H := float64(w), float64(h)
 
-	// Sprite bounding box for this frame (only stamp cells inside it).
-	left := int(math.Round(fl.cx)) - spriteW/2
+	// The saucer's continuous left edge (for half-cell horizontal sub-positioning) and
+	// its integer top row.
+	cxLeft := fl.cx - float64(spriteW)/2
 	topRow := int(math.Round(fl.cy)) - spriteH/2
 
 	var b strings.Builder
@@ -399,9 +429,9 @@ func Frame(w, h, tick int) string {
 			glyph := ' '
 			lit := false
 
-			// 1. Saucer sprite — opaque, drawn over everything.
+			// 1. Saucer sprite — opaque, drawn over everything, at half-cell resolution.
 			if fl.shown {
-				if col, g, ok := spritePixel(r-topRow, c-left, tick); ok {
+				if col, g, ok := spriteAt(r, c, tick, cxLeft, topRow); ok {
 					out, glyph, lit = col, g, true
 				}
 			}
