@@ -1,4 +1,4 @@
-module github.com/ZviBaratz/terminal-animations/examples/embers
+module github.com/ZviBaratz/terminal-animations/examples/saucer
 
 go 1.25.0
 

@@ -1,11 +1,11 @@
-// cmd/wasm — the browser harness entrypoint for the embers animation.
+// cmd/wasm — the browser harness entrypoint for the saucer animation.
 //
-// This is scripts/harness/main.go.tmpl with render() wired to embers.Frame.
+// This is scripts/harness/main.go.tmpl with render() wired to saucer.Frame.
 // Build and serve it with:
 //
-//	scripts/harness.sh examples/embers      # → http://localhost:8731/?anim=embers
+//	scripts/harness.sh examples/saucer      # → http://localhost:8731/?anim=saucer
 //
-// embers is free-running and does NOT close a loop (unlike nebula), so the
+// saucer is free-running and does NOT close a loop (unlike nebula), so the
 // harness's compare pane will never match at any Δ — that is correct, not a bug.
 //
 //go:build js && wasm
@@ -16,13 +16,13 @@ import (
 	"syscall/js"
 	"unsafe"
 
-	"github.com/ZviBaratz/terminal-animations/examples/embers"
+	"github.com/ZviBaratz/terminal-animations/examples/saucer"
 )
 
 func main() {
-	// embers is a pure, free-running field: frame N is a function of (w, h, N).
+	// saucer is a pure, free-running scene: frame N is a function of (w, h, N).
 	render := func(w, h, tick int) (frame string, done bool) {
-		return embers.Frame(w, h, tick), false
+		return saucer.Frame(w, h, tick), false
 	}
 
 	// renderFrame(w, h, tick, out Int32Array) -> done bool

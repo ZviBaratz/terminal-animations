@@ -1,6 +1,6 @@
-// cmd/preview — the standalone preview + frame-renderer for the embers example
+// cmd/preview — the standalone preview + frame-renderer for the saucer example
 // animation. This is scripts/preview/ (main.go.tmpl + size_*.go) with render() wired
-// to embers.Frame: a live full-terminal loop plus a headless frames dump.
+// to saucer.Frame: a live full-terminal loop plus a headless frames dump.
 //
 //	go run ./cmd/preview                      # live, fills the terminal, follows resizes (Ctrl-C to quit)
 //	go run ./cmd/preview frames 5             # dump 5 frames at 80×24 (structure + colour check)
@@ -17,13 +17,13 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/ZviBaratz/terminal-animations/examples/embers"
+	"github.com/ZviBaratz/terminal-animations/examples/saucer"
 )
 
 func main() {
-	// embers is a pure, free-running field: frame N is a function of (w, h, N) alone.
+	// saucer is a pure, free-running scene: frame N is a function of (w, h, N) alone.
 	render := func(w, h, tick int) (frame string, done bool) {
-		return embers.Frame(w, h, tick), false
+		return saucer.Frame(w, h, tick), false
 	}
 
 	// frames mode: a deterministic dump for the headless gate (ansi2png). Kept at a

@@ -69,6 +69,15 @@ stays a dim wash rather than confetti.
   a vignette reads as a window onto something larger.
 - **Anchor to a focal point.** Motion that emanates from, orbits, or recedes toward
   a point reads as intentional; motion with no origin reads as noise.
+- **Choose the subject to the medium.** A cell grid is coarse, low-colour-depth, and
+  square — it renders *bold contrast, saturated colour, crisp shapes, and directional
+  motion* beautifully, and *smooth, subtle, low-contrast gradients* as mud. So pick a
+  subject the medium flatters. A smooth astronomical glow (a galaxy) fights the grid; a
+  directional field (aurora, rain, a tunnel) and a crisp bold sprite embrace it. When a
+  composition reads as a muddy smudge, the fix is usually not another constant-sweep — it
+  is a subject or field the grid can actually draw. (`examples/saucer` began as a fresco
+  *galaxy* and had to be rebuilt around a fresco *aurora* plus a cartoon sprite for exactly
+  this reason.)
 
 ## The forever-loop seam
 

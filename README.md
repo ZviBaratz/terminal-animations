@@ -86,9 +86,9 @@ on any `(w, h, tick)`, determinism where pure, and a golden frame.
   - [`torus/`](examples/torus) — a **braille** 3D wireframe torus with hidden-line
     removal (seamless loop) — the top rung, where the dot mask carries geometry and
     colour carries depth.
-  - [`embers/`](examples/embers) — warm embers drifting over a **[fresco](https://github.com/ZviBaratz/fresco)**
-    galaxy, coupled so the embers catch the field's light: the worked example of
-    **building on a provider** instead of reimplementing it (free-running).
+  - [`saucer/`](examples/saucer) — a cartoon flying saucer drifting across a **[fresco](https://github.com/ZviBaratz/fresco)**
+    aurora night sky, lighting the sky beneath it and trailing a tractor beam: the worked
+    example of **building on a provider** instead of reimplementing it (free-running).
 
 ## Install
 

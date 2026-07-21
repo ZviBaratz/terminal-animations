@@ -127,10 +127,12 @@ The generic answer to any brief is one effect in flat ASCII. Compose past it:
   **vignette** tying them, reads as intentional depth, not noise.
 - **Reach the ecosystem** (`tools.md`, `effects.md`) — the **fresco** provider for a
   rain/tunnel/ripple/galaxy field; a **chafa/ffmpeg** source baked at build time; drive
-  one effect with another. Don't rebuild what exists. `examples/embers` is the worked
-  composite: a dimmed fresco galaxy that *sheds* a spark layer — the sparks exist only
-  where the field is bright and stream from its core, so they belong to the scene rather
-  than sit on top of it. Coupling that hard is what turns a stack into a scene.
+  one effect with another. Don't rebuild what exists. `examples/saucer` is the worked
+  composite: a cartoon flying saucer drifts across a fresco *aurora* night sky, lighting
+  the sky beneath it and trailing a tractor beam the stars show through — a subject that
+  *belongs to* the scene rather than sitting on top of it. (It began as a fresco galaxy
+  and read as mud — **choose the subject to the medium**: a cell grid wants bold contrast
+  and motion, not a soft gradient. See `craft.md`.)
 - **Keep it deterministic** so it stays testable.
 
 ## The contract, and the test

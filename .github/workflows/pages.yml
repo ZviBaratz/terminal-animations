@@ -36,7 +36,7 @@ jobs:
         with:
           go-version: stable
           # Each example is its own module and they share no go.sum (most have no
-          # dependencies at all; examples/embers is the one that pulls in fresco),
+          # dependencies at all; examples/saucer is the one that pulls in fresco),
           # so there is no single key for the build cache to key on.
           cache: false
 
