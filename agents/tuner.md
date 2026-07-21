@@ -45,9 +45,17 @@ has the resolution-ladder / colour / dither levers if a fix needs one. The harne
    or Read `/tmp/anim.png` and judge the hue and motion by eye. Reasoning colour
    from the formula without rendering is the shortcut this pass exists to stop.
 
-5. **Converge.** Repeat until it passes the craft.md visual checklist: motion
-   reads as motion, enough dark space, no stuck pixels or width bugs, legible on a
-   dark background.
+5. **Converge — against craft *and* the vision.** Repeat until it passes the craft.md
+   visual checklist (motion reads as motion, enough dark space, no stuck pixels or width
+   bugs, legible on a dark background) **and** matches the piece's **Vision Card** (in the
+   package doc-comment / README, SKILL §1) slot by slot — the motion verb, the light, the
+   atmosphere, the one special idea.
+
+   **Know your reach.** You sweep *existing* constants — speed, brightness split, sharpness,
+   a frequency, a floor. That can make a flat pan a nicer flat pan; it **cannot** add a
+   missing mist layer, introduce a relighting sweep, or turn a pan into a pseudo-3D turn.
+   When a Vision-Card slot keeps failing no matter how you sweep, that is a **motion-model /
+   composition gap for the author**, not a constant — stop sweeping and say so plainly.
 
 ## Report
 
@@ -56,8 +64,9 @@ Return a concise report, not a narrative:
 - **Constants changed**, each as `name: old → new`, with a one-line *rendered*
   justification (what you saw at the neighbours you rejected).
 - **Any sweep you ran** and the value each candidate produced.
-- **Verdict** against the craft.md checklist, and anything still off that needs a
-  structural change rather than a constant.
+- **Verdict** against the craft.md checklist *and* the Vision Card, and anything still off
+  that needs an author-level motion-model / composition change rather than a constant you
+  can reach.
 
 Do not claim it looks good without having rendered it. If you tuned by editing a
 `const`, confirm you left the source building and gofmt-clean.

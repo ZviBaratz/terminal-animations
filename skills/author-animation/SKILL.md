@@ -16,10 +16,12 @@ A conventional terminal animation is one effect, in flat 1×1 ASCII glyphs, with
 functional colour. A *mesmerizing* one is composed: a deliberate fidelity tier, a
 designed palette, layered effects, tuned by eye. This skill is the process that gets the
 second thing — **interrogate the vision → choose the target → compose past the default →
-build to a testable convention → tune at a beauty gate.** Pull in the references as a
-stage needs them: `craft.md` (the motion/beauty rubric), `techniques.md` (resolution
-ladder, colour, dithering), `effects.md` (effects to *combine*, not copy), `tools.md`
-(providers and build-time tools — **fresco is one provider**).
+build to a testable convention → tune at a beauty gate *against the vision*.** Pull in the
+references as a stage needs them: `craft.md` (the motion/beauty rubric), `techniques.md`
+(resolution ladder, colour, dithering), `effects.md` (effects to *combine*, not copy),
+`tools.md` (providers and build-time tools — **fresco is one provider**), `atmosphere-kit.md`
+(paste-ready code to composite a baked subject over a live scene), `palette-cycle-kit.md`
+(paste-ready code to silkscreen a subject and ripple its palette).
 
 > **Where the bundled files live.** The references and the tuning harness ship *with the
 > plugin*, not in the user's project — reach them by absolute path, never a bare relative
@@ -42,7 +44,22 @@ skippable) — those are cheap. The expert questions, usually skipped, are about
   version lacks. Find it before writing code.
 
 Ask **few and sharp** — only where the answer changes the build; default the rest and
-say so. Then **state the concept back in one line** and build to it.
+say so. Then write the answer down as a **Vision Card** — not a throwaway sentence, a
+durable artifact the build is measured against:
+
+> **Vision Card** (put it in the package doc-comment / README so it outlives the Brief):
+> - **Subject** — what it is and how it's treated (a matted photo, a wireframe, a field).
+> - **Motion verb** — the *real* verb: "turning," "breathing," "surging," "raining." Not
+>   "moving" and never "panning" — if the truest verb for your plan is *pan*, the plan is
+>   the generic one; go back.
+> - **Light** — where it comes from and whether it moves. "Flat" is an answer, but name it.
+> - **Atmosphere** — depth, haze, particles, backdrop; what the subject sits *in*.
+> - **Palette** — the designed colours (`techniques.md`), not "functional."
+> - **The one special idea** — the single thing the generic version lacks.
+
+The Vision Card is the spec the **beauty gate** (§Tune) grades against, slot by slot, and
+is allowed to *fail* a build that is merely competent. Eliciting taste and then not holding
+the result to it is how a piece passes every test and still misses the vision.
 
 ## 2 · Select the target
 
@@ -123,8 +140,21 @@ The generic answer to any brief is one effect in flat ASCII. Compose past it:
 - **Design the palette**, don't pick colours functionally. Split brightness across the
   two channels — glyph density vs colour luminance (`craft.md`) — and dither gradients
   (Bayer for motion, `techniques.md`).
-- **Layer.** A slow field wash (luminance) *behind* a subject/particles, with a focal
-  **vignette** tying them, reads as intentional depth, not noise.
+- **Get the motion past a slide.** For a subject, "moving" the generic way is a translate —
+  a pan, a bob, an ellipse (two quarter-phase sinusoids). Two ways past it: **move the
+  subject in 3D** (a pseudo-3D turn, parallax, a relighting sweep, atmosphere at its own rate
+  — `craft.md` §"Making a subject move in 3D"), or **freeze the geometry and move the color**
+  (silkscreen the subject and ripple its palette — `palette-cycle-kit.md`). The red flag is
+  the same either way: two quarter-phase sinusoids are an ellipse, not motion.
+- **Transform the subject — with real machinery, not a slogan.** Two paste-ready patterns,
+  both keeping the subject deterministic. **Composite it over a *live* scene** — a lit
+  backdrop and drifting mist behind, a sweeping light, wisps in front, a vignette tying it;
+  for a photographic subject keep an alpha channel and composite at run time
+  (`atmosphere-kit.md`). Or **silkscreen it** — bake a luminance+alpha matte, posterize to a
+  few flat bands, and recolor through cycling colorways (`palette-cycle-kit.md`, the pattern
+  `examples/bust` embodies); in a terminal, bold flat color beats subtle gradient realism, so
+  when a realistic subject underwhelms, this is the move. For a *procedural* subject, layer
+  inline over its own field (`examples/torus`).
 - **Reach the ecosystem** (`tools.md`, `effects.md`) — the **fresco** provider for a
   rain/tunnel/ripple/galaxy field; a **chafa/ffmpeg** source baked at build time; drive
   one effect with another. Don't rebuild what exists. `examples/saucer` is the worked
@@ -174,10 +204,34 @@ rasterize `frames` into a PNG you can look at with no TTY (a sandbox, CI, an age
 `record.sh` for the GIF.
 Sweep each taste constant and pick by eye. The optional **`tuner`** subagent drives this.
 
+**Then grade it against the Vision Card, slot by slot.** Competence is not the bar. Look at
+the loop and ask, for each slot: is the *motion verb* the one you named (does it **turn**, or
+does it slide)? Is the **light** where you said, and does it move? Is the **atmosphere**
+there? Did **the one special idea** land? Name what's missing and fix *that* — even when
+every test is green and the frame is "fine." A merely-competent result should fail this gate.
+Note the division of labour: the `tuner` sweeps *existing* constants (speed, brightness,
+sharpness) and can make a flat pan a nicer flat pan — but a missing layer, absent light, or
+a pan-where-you-wanted-a-turn is a **motion-model / composition fix you make as the author**,
+not a constant it can reach. If the gate keeps failing on the same slot, change the model.
+
 ## Red flags
 
 - **Settling for 1×1 ASCII glyphs** when the resolution ladder would look far better — the
   flat `.·+*#@` starfield is the conventional default; climb.
+- **A subject that translates instead of turning** — a matted still panned in an ellipse
+  (`x=A·sinθ, y=B·cosθ`) with a global brightness "breathe" is a photo with a Ken Burns
+  move, the RED baseline for a subject. Turn it and relight it in atmosphere
+  (`atmosphere-kit.md`, `craft.md` §"Making a subject move in 3D"), or silkscreen it and
+  move the color instead (`palette-cycle-kit.md`).
+- **Fighting the medium with realism** — a photographic subject rendered "accurately" at a
+  low resolution reads as a broken photo (banded, muddy), not a picture. A terminal rewards
+  bold flat color; when realism underwhelms, posterize and recolor it (`palette-cycle-kit.md`)
+  rather than chasing fidelity it can't show.
+- **Baking the light and the backdrop into flat frames**, then wondering why it's lifeless —
+  a light and a fog that move can't be frozen; keep the subject's alpha and synthesize them
+  live (`tools.md` §Baking).
+- **"It passes and looks fine" on a piece that misses the Vision Card** — competent is not
+  the bar; the beauty gate grades against the vision and may fail merely-competent.
 - **Functional colour** (grey→white→cyan by reflex) instead of a *designed* palette.
 - **Rebuilding rain / tunnel / ripple / galaxy** instead of using the fresco provider.
 - **Interrogating the author** about what you could just default.

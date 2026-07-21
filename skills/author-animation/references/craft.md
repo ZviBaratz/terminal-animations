@@ -47,6 +47,45 @@ its golden test is stable.
 - **Coherent global motion** — a whole texture translating or receding one way — is
   what makes the eye read *self-motion* rather than shimmer.
 
+## Making a subject move in 3D
+
+The heuristics above are about a *field*. A **subject** — a bust, a sprite, a logo, any
+object with a silhouette — has a harder default to escape: the generic "motion" for a
+subject is a **translate**. A pan, a bob, a slow zoom, or the two-quarter-phase-sinusoid
+ellipse (`x = A·sinθ, y = B·cosθ`) that reads as drifting in a circle. Add a global
+brightness "breathe" and you have described a photograph with a Ken Burns move. It is flat
+because it *is* flat: one plane sliding in its own frame, no new information revealed. This
+is the RED baseline. Climb it with any of:
+
+- **A pseudo-3D turn.** A gentle perspective keystone about the vertical axis (yaw = A·sinθ),
+  applied to the subject, reveals a little of each side and reads as *rotating*, not sliding
+  — the honest stand-in for a spin when a single still can't show the back. (Baked with
+  `perspective`/`Image.transform`; see `tools.md` §Baking. `examples/bust` does exactly this.)
+- **Parallax.** Separate the scene into depth planes and move them at *different* rates —
+  the subject one amount, the mist/backdrop another. Differential motion is the strongest
+  monocular depth cue there is; it turns a slide into a space.
+- **A relighting sweep.** Hold the geometry still and move the *light* — a warm key that
+  orbits the subject, a rim that rakes the silhouette, a specular that travels. A moving
+  light on a static object reads as far more alive than the object translating under a fixed
+  one, and it is "dramatic lighting" almost by definition. (`atmosphere-kit.md` has the term.)
+- **Atmospheric depth.** Haze that thickens with distance, mist drifting across and pooling
+  at the base, dust catching the light — depth cues that also *move*, at their own rate, so
+  the subject sits *in* something rather than on top of it.
+
+Compose two or three of these — a turn under a sweeping light in drifting mist — and a flat
+cut-out becomes a lit object in space. The machinery is `atmosphere-kit.md`; the motion
+verb you named on the Vision Card (SKILL §1) is what tells you which of these you owe.
+
+**Or don't move the geometry at all — move the color.** There is a second escape from the
+translate, and in a terminal it is often the stronger one: reduce the subject to a *graphic*
+and animate its palette. Posterize its luminance into a few flat bands and recolor them,
+cycling the colorways so a wave of recoloring sweeps across it — a Warhol silkscreen. This
+works *because* of the medium: a terminal is bad at subtle gradients and spectacular at bold
+flat color, so a subject whose realism is fighting the resolution gets *stronger* the moment
+you stop rendering it accurately. The machinery is `palette-cycle-kit.md`; `examples/bust` is
+the worked piece. Reach for it when the Vision Card's appeal is graphic or iconic; reach for
+the 3D and lighting moves above when the appeal is form and light.
+
 ## Two brightness channels
 
 Brightness can ride two independent channels, and how you split it is most of the
@@ -136,6 +175,10 @@ folding back once chosen.
   *structure* — the `h×w` contract, glyph widths, enough negative space, that
   consecutive frames actually differ.
 - **Outer loop (the beauty gate):** record a short GIF and **watch the motion, in
-  colour**. Does it read as motion? Enough dark space? No stuck pixels or width
-  bugs? Legible on a dark background? Tune, and repeat until it reads right. The
+  colour**. Two passes. First, *craft*: does it read as motion? Enough dark space? No
+  stuck pixels or width bugs? Legible on a dark background? Then, *vision*: hold it up to
+  the Vision Card (SKILL §1) slot by slot — is the motion the **verb** you named (does it
+  turn, or slide?), is the **light** where you said and moving, is the **atmosphere** there,
+  did **the one special idea** land? The craft pass rejects broken; the vision pass rejects
+  *merely competent*, and it is allowed to. Tune, and repeat until it reads right. The
   `${CLAUDE_PLUGIN_ROOT}/scripts/` harness runs both loops.
