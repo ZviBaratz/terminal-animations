@@ -70,7 +70,7 @@ func TestDeterministic(t *testing.T) {
 }
 
 // No TestLoopSeam here: embers is free-running — the galaxy advances linearly by tick and
-// the ember field scrolls linearly by tick — so no tick reproduces an earlier frame and
+// the spark lattice sheds linearly by tick — so no tick reproduces an earlier frame and
 // there is no seam to pin. A seamless θ-loop does; see examples/nebula. (SKILL.md §B.)
 
 // TestFieldLayerPresent gives the fresco integration teeth: at a normal size the parsed
@@ -98,28 +98,49 @@ func TestFieldLayerPresent(t *testing.T) {
 	}
 }
 
-// TestEmberLayerSparse gives the ember layer teeth: sampled over a normal pane at a given
-// tick, some cells must carry an ember (the layer is really there) but only a minority
-// (embers are a sparse drift, not a flood). If the layer vanished the count is 0; if it
-// filled the pane the sparsity bound trips — either way the "layered composition" claim
-// would be false, and this catches it.
-func TestEmberLayerSparse(t *testing.T) {
+// TestSparksTrackField gives the *coupling* teeth — the whole point of this example. The
+// foreground is not an independent layer: a spark exists only where the galaxy is lit
+// beneath it. So it asserts two things over a normal pane, both computed through the same
+// spark() the renderer uses:
+//
+//   - Sparks are present but sparse — the shed is really there, and only a minority of
+//     cells (the bright arms are a fraction of the pane), so it reads as sparks on arms,
+//     not a flood.
+//   - *Every* visible spark sits over a lit field cell, and *zero* sit over the dark void.
+//     This is the coupling itself: fieldGate() is 0 where the field is dark. Delete the
+//     gate (make spark ignore fieldLum) and sparks appear in the empty corners — this
+//     test goes red. That is the failure the whole rework exists to prevent.
+func TestSparksTrackField(t *testing.T) {
 	const w, h = 80, 24
 	const tick = 7.0
-	present := 0
-	for py := 0; py < h; py++ {
+	grid := parseField(w, h, tick)
+	cx, cy := fieldCentroid(grid)
+
+	present, offField := 0, 0
+	for r := 0; r < h; r++ {
 		for c := 0; c < w; c++ {
-			if emberLum(c, py, tick) > emberCut {
+			bg := grid[r][c]
+			var fieldLum float64
+			if bg.lit {
+				fieldLum = luma(rgb{float64(bg.r) / 255, float64(bg.g) / 255, float64(bg.b) / 255})
+			}
+			if spark(c, r, tick, fieldLum, cx, cy) > emberCut {
 				present++
+				if !bg.lit {
+					offField++
+				}
 			}
 		}
 	}
 	total := w * h
 	if present == 0 {
-		t.Fatal("no embers present — the foreground layer is empty")
+		t.Fatal("no sparks present — the foreground shed is empty")
 	}
 	if present > total/3 {
-		t.Fatalf("embers cover %d/%d cells — too dense to read as a sparse drift", present, total)
+		t.Fatalf("sparks cover %d/%d cells — too dense to read as a sparse shed", present, total)
+	}
+	if offField != 0 {
+		t.Fatalf("%d spark(s) sit over unlit void — the field gate is not coupling them to the galaxy", offField)
 	}
 }
 

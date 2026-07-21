@@ -19,7 +19,8 @@ the deferred **future hybrid door** — not this plugin's self-contained artifac
   or one of those effects, use fresco rather than reimplementing it — and if you're
   adding a *new* field from inside the fresco repo, that's a fresco variant (skill §A).
   `examples/embers` is a worked composite that imports fresco from *outside* the repo —
-  a dimmed galaxy field with a foreground ember layer composited over it — showing the
+  a dimmed galaxy field that *sheds* a foreground spark layer (the sparks exist only where
+  the field is bright and stream from its core, so they belong to the scene) — showing the
   parse-the-rendered-output-and-composite shape this section describes.
 - **ascii-image-converter** — `github.com/TheZoraiz/ascii-image-converter` (+ `aic_package`)
   — image → ASCII/**braille**, truecolor, dithering, in-process.
