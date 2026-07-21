@@ -16,7 +16,11 @@
 /web/*.wasm
 /web/wasm_exec.js
 /web/animations.json
+/web/posters/
 
 # Python
 __pycache__/
 *.pyc
+
+# Compiled example preview binaries (go build ./cmd/preview drops one here)
+examples/*/preview

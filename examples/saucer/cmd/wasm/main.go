@@ -1,11 +1,11 @@
-// cmd/wasm — the browser harness entrypoint for the plasma animation.
+// cmd/wasm — the browser harness entrypoint for the saucer animation.
 //
-// This is scripts/harness/main.go.tmpl with render() wired to plasma.Frame.
+// This is scripts/harness/main.go.tmpl with render() wired to saucer.Frame.
 // Build and serve it with:
 //
-//	scripts/harness.sh examples/plasma      # → http://localhost:8731/?anim=plasma
+//	scripts/harness.sh examples/saucer      # → http://localhost:8731/?anim=saucer
 //
-// plasma is free-running and does NOT close a loop (unlike nebula), so the
+// saucer is free-running and does NOT close a loop (unlike nebula), so the
 // harness's compare pane will never match at any Δ — that is correct, not a bug.
 //
 //go:build js && wasm
@@ -16,20 +16,14 @@ import (
 	"syscall/js"
 	"unsafe"
 
-	"github.com/ZviBaratz/terminal-animations/examples/plasma"
+	"github.com/ZviBaratz/terminal-animations/examples/saucer"
 )
 
 func main() {
-	// plasma is a pure, free-running field: frame N is a function of (w, h, N).
+	// saucer is a pure, free-running scene: frame N is a function of (w, h, N).
 	render := func(w, h, tick int) (frame string, done bool) {
-		return plasma.Frame(w, h, tick), false
+		return saucer.Frame(w, h, tick), false
 	}
-
-	// 0 — plasma's time is linear, so it drifts forever and never exactly repeats.
-	// This is what turns the compare pane's non-result into a stated property: the
-	// viewer disables Δ and says so, instead of letting you hunt for a match that
-	// does not exist.
-	period := func(w, h int) int { return 0 }
 
 	// renderFrame(w, h, tick, out Int32Array) -> done bool
 	//
@@ -38,10 +32,6 @@ func main() {
 	// finished. The ANSI string stays the contract; this is only transport —
 	// marshaling a ~360KB string across the JS boundary every frame costs far
 	// more than a memcpy of the decoded grid.
-	//
-	// The decoded grid is held across calls rather than reallocated per frame; JS
-	// is single-threaded and these calls are serialised, so it needs no guarding.
-	var cells []int32
 	js.Global().Set("renderFrame", js.FuncOf(func(_ js.Value, args []js.Value) any {
 		if len(args) < 4 {
 			return false
@@ -52,16 +42,7 @@ func main() {
 		}
 
 		frame, done := render(w, h, tick)
-
-		// Reuse the grid across frames, growing only when the pane does. A fresh
-		// make() per frame is ~110KB of garbage at 192x48, or >3MB/s at 30fps —
-		// enough to keep the Go heap inflated and the collector busy for no gain.
-		// Mirrors Pane.ensure on the JS side, which grows the same way.
-		if n := w * h * int32sPerCell; cap(cells) < n {
-			cells = make([]int32, n)
-		} else {
-			cells = cells[:n]
-		}
+		cells := make([]int32, w*h*int32sPerCell)
 		decode(frame, w, h, cells)
 
 		// CopyBytesToJS wants a byte view of the int32 slice. Go/wasm is always
@@ -69,23 +50,6 @@ func main() {
 		raw := unsafe.Slice((*byte)(unsafe.Pointer(&cells[0])), len(cells)*4)
 		js.CopyBytesToJS(js.Global().Get("Uint8Array").New(args[3].Get("buffer")), raw)
 		return done
-	}))
-
-	// animPeriod(w, h) -> loop length in ticks, or 0 for one that never repeats.
-	//
-	// The viewer drives the tick slider's range and the compare Δ from this. Taking
-	// the pane matters: a loop whose length scales with the pane re-derives on every
-	// resize, instead of leaving a Δ that was right at one size and silently wrong
-	// at the next.
-	js.Global().Set("animPeriod", js.FuncOf(func(_ js.Value, args []js.Value) any {
-		if len(args) < 2 {
-			return 0
-		}
-		w, h := args[0].Int(), args[1].Int()
-		if w <= 0 || h <= 0 {
-			return 0
-		}
-		return period(w, h)
 	}))
 
 	// Signal readiness, then park — the Go runtime must stay alive to service calls.

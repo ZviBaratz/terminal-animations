@@ -78,14 +78,17 @@ on any `(w, h, tick)`, determinism where pure, and a golden frame.
   MP4 with only `ffmpeg` + `python3`) and `record.sh` (the vhs path, which additionally
   needs `vhs` and `ttyd`).
 - `agents/tuner.md` — an optional subagent that drives the render → look → tune loop.
-- `examples/` — three **reference animations**, each built to the standalone convention
-  with its own preview, golden test and demo GIF, and each demonstrating a different
-  rung of the resolution ladder:
+- `examples/` — four **reference animations**, each built to the standalone convention
+  with its own preview, golden test and demo GIF. Three climb the resolution ladder; the
+  fourth shows composing with the ecosystem:
   - [`plasma/`](examples/plasma) — a half-block truecolor plasma (free-running).
   - [`nebula/`](examples/nebula) — a half-block drifting nebula field (seamless loop).
   - [`torus/`](examples/torus) — a **braille** 3D wireframe torus with hidden-line
     removal (seamless loop) — the top rung, where the dot mask carries geometry and
     colour carries depth.
+  - [`saucer/`](examples/saucer) — a cartoon flying saucer drifting across a **[fresco](https://github.com/ZviBaratz/fresco)**
+    aurora night sky, lighting the sky beneath it and trailing a tractor beam: the worked
+    example of **building on a provider** instead of reimplementing it (free-running).
 
 ## Install
 

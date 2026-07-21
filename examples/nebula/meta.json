@@ -1,0 +1,9 @@
+{
+  "title": "nebula",
+  "blurb": "a deep-space field, drifting",
+  "resolutions": [1],
+  "accent": "#E673D9",
+  "loop": "seamless · 1080 ticks",
+  "note": "accent is nebStops[0.92], the magenta its dense cores glow",
+  "posterTick": 240
+}

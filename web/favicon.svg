@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" shape-rendering="crispEdges">
+  <!-- Two cells of the half-block rung, which is what this project is made of:
+       one cell showing ▀ and one showing ▄, each with an independent fg and bg.
+       Colours are nebula's palette — its void, its indigo dust, its magenta core.
+       Drawn on an 8px grid so it stays sharp at 16px and every integer multiple. -->
+  <rect width="16" height="16" fill="#05030f"/>
+  <rect x="0" y="0" width="8" height="8" fill="#e673d9"/>
+  <rect x="0" y="8" width="8" height="8" fill="#241a58"/>
+  <rect x="8" y="0" width="8" height="8" fill="#241a58"/>
+  <rect x="8" y="8" width="8" height="8" fill="#8b3fb0"/>
+</svg>

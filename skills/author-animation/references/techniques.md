@@ -58,6 +58,31 @@ Spot checks: `⠁` = dot 1 only, `⡀` = dot 7, `⢀` = dot 8, `⡇` = the whole
 `⣿` = all eight. Pin the table in a unit test — a wrong mapping still renders *something*
 plausible, so it fails silently and reads as a subtly wrong texture rather than a crash.
 
+**Braille depends on the reader's font in a way no other rung does — say so in the
+README.** U+2800–28FF is universally *supported* and far from universally *included*:
+MesloLGS NF, JetBrains Mono and DejaVu Sans **Mono** all lack it, and fontconfig then
+falls back silently, usually to proportional DejaVu Sans. The result is dots at the wrong
+pitch inside a monospace cell, and it looks like a bug in your animation. Two traps:
+
+- `fc-match "TheirFont:charset=2800"` naming a *different* family means they are seeing a
+  fallback. Do not filter with `:spacing=100` — Iosevka has braille and is tagged
+  `spacing=90`, so that query hides it.
+- Even with a braille-carrying font, the **line box is taller than four dot rows**, so a
+  blank band lands every 4 dot rows, screen-locked. Moving art drifting through those
+  bands has dots wink out and back, which reads as jitter. Counter-intuitively the
+  *tighter* the font's dots, the *worse* this is — Cascadia Mono's seam is 5.4× its
+  intra-cell gap against DejaVu's 1.4×, because shrinking the gap inside a cell does
+  nothing to the cell height. Fix is negative line spacing (`font.offset.y` in Alacritty)
+  to make the cell exactly four dot pitches. See `examples/torus/README.md` for measured
+  tables and a per-launch test command.
+
+Consequence for **gating**: "judge it live" is not sufficient advice on this rung, because
+a live terminal with the wrong font is a worse gate than the PNG. Check the font first.
+And for **line art specifically**, contrast does much of the work that geometry cannot:
+braille dots are separated marks, so dim wires stop grouping into lines at all. A too-dim
+palette reads as "dotty" and sends you hunting for a rasterization bug that isn't there —
+this happened in `examples/torus`, where the real culprit was a `shadeGamma` of 2.2.
+
 Note also that **braille dots are very nearly square**: a terminal cell is roughly 1×2, and
 2×4 dots divide that into 0.5×0.5 units. So drive both axes off the *same* scale factor or
 circles come out elliptical — `examples/{plasma,nebula}` do it by normalizing y against the
