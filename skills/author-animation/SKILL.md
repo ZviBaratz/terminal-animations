@@ -20,7 +20,8 @@ build to a testable convention → tune at a beauty gate *against the vision*.**
 references as a stage needs them: `craft.md` (the motion/beauty rubric), `techniques.md`
 (resolution ladder, colour, dithering), `effects.md` (effects to *combine*, not copy),
 `tools.md` (providers and build-time tools — **fresco is one provider**), `atmosphere-kit.md`
-(paste-ready code to composite a baked subject over a live scene).
+(paste-ready code to composite a baked subject over a live scene), `palette-cycle-kit.md`
+(paste-ready code to silkscreen a subject and ripple its palette).
 
 > **Where the bundled files live.** The references and the tuning harness ship *with the
 > plugin*, not in the user's project — reach them by absolute path, never a bare relative
@@ -139,17 +140,21 @@ The generic answer to any brief is one effect in flat ASCII. Compose past it:
 - **Design the palette**, don't pick colours functionally. Split brightness across the
   two channels — glyph density vs colour luminance (`craft.md`) — and dither gradients
   (Bayer for motion, `techniques.md`).
-- **Make the motion 3D, not a slide.** For a subject, "moving" the generic way is a
-  translate — a pan, a bob, an ellipse (two quarter-phase sinusoids). Reach past it:
-  a pseudo-3D turn, parallax between depth planes, a relighting sweep, atmosphere drifting
-  at its own rate. The vocabulary and the red flags are in `craft.md` §"Making a subject
-  move in 3D".
-- **Layer — with real machinery, not a slogan.** A subject over a *live* scene: a lit
-  backdrop and drifting mist behind, a sweeping light on the subject, wisps in front, a
-  vignette tying it. For a *baked/photographic* subject this means keeping an alpha channel
-  and compositing at run time — `atmosphere-kit.md` is the paste-ready code and
-  `examples/bust` the worked piece. For a *procedural* subject, layer inline over its own
-  field (`examples/torus`).
+- **Get the motion past a slide.** For a subject, "moving" the generic way is a translate —
+  a pan, a bob, an ellipse (two quarter-phase sinusoids). Two ways past it: **move the
+  subject in 3D** (a pseudo-3D turn, parallax, a relighting sweep, atmosphere at its own rate
+  — `craft.md` §"Making a subject move in 3D"), or **freeze the geometry and move the color**
+  (silkscreen the subject and ripple its palette — `palette-cycle-kit.md`). The red flag is
+  the same either way: two quarter-phase sinusoids are an ellipse, not motion.
+- **Transform the subject — with real machinery, not a slogan.** Two paste-ready patterns,
+  both keeping the subject deterministic. **Composite it over a *live* scene** — a lit
+  backdrop and drifting mist behind, a sweeping light, wisps in front, a vignette tying it;
+  for a photographic subject keep an alpha channel and composite at run time
+  (`atmosphere-kit.md`). Or **silkscreen it** — bake a luminance+alpha matte, posterize to a
+  few flat bands, and recolor through cycling colorways (`palette-cycle-kit.md`, the pattern
+  `examples/bust` embodies); in a terminal, bold flat color beats subtle gradient realism, so
+  when a realistic subject underwhelms, this is the move. For a *procedural* subject, layer
+  inline over its own field (`examples/torus`).
 - **Reach the ecosystem** (`tools.md`, `effects.md`) — the **fresco** provider for a
   rain/tunnel/ripple/galaxy field; a **chafa/ffmpeg** source baked at build time; drive
   one effect with another. Don't rebuild what exists.
@@ -210,8 +215,13 @@ not a constant it can reach. If the gate keeps failing on the same slot, change 
   flat `.·+*#@` starfield is the conventional default; climb.
 - **A subject that translates instead of turning** — a matted still panned in an ellipse
   (`x=A·sinθ, y=B·cosθ`) with a global brightness "breathe" is a photo with a Ken Burns
-  move, the RED baseline for a subject. Turn it, relight it, put it in atmosphere
-  (`atmosphere-kit.md`, `craft.md` §"Making a subject move in 3D").
+  move, the RED baseline for a subject. Turn it and relight it in atmosphere
+  (`atmosphere-kit.md`, `craft.md` §"Making a subject move in 3D"), or silkscreen it and
+  move the color instead (`palette-cycle-kit.md`).
+- **Fighting the medium with realism** — a photographic subject rendered "accurately" at a
+  low resolution reads as a broken photo (banded, muddy), not a picture. A terminal rewards
+  bold flat color; when realism underwhelms, posterize and recolor it (`palette-cycle-kit.md`)
+  rather than chasing fidelity it can't show.
 - **Baking the light and the backdrop into flat frames**, then wondering why it's lifeless —
   a light and a fog that move can't be frozen; keep the subject's alpha and synthesize them
   live (`tools.md` §Baking).

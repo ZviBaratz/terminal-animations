@@ -54,7 +54,13 @@ The step up:
   geometry to light — so bake it *with alpha* and synthesize the scene around it at run time:
   a lit backdrop and mist behind, a sweeping light on the subject, wisps in front. This is
   how a cut-out becomes a lit object in space (and the antidote to the panned-still baseline).
-  `atmosphere-kit.md` is the code; `examples/bust` the worked piece.
+  `atmosphere-kit.md` is the paste-ready code.
+- **Silkscreen a subject and cycle its palette.** When a subject's *subtle shading* is what's
+  failing at low resolution (a photo going banded and muddy), don't light it — reduce it: bake
+  a luminance+alpha matte, posterize it into a few flat bands, and recolor the bands through
+  cycling colorways so a wave of recoloring sweeps across it (a Warhol grid). Bold flat color
+  is what a terminal renders best. `palette-cycle-kit.md` is the code; `examples/bust` the
+  worked piece.
 - **Borrow the 3D reads for a flat subject.** The parallax of the *starfield warp*, the
   moving `N·L` of the *donut*, and a *perspective* turn are not only for procedural geometry
   — apply them to a baked subject (parallax between its depth planes, a relighting sweep, a

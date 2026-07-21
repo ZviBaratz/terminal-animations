@@ -18,8 +18,9 @@ backdrop (lit space)  →  mist behind  →  SUBJECT over (relit)  →  rim  →
 Every atmosphere term is a pure function of the loop phase `θ = 2π·(tick mod period)/period`,
 so the whole thing stays deterministic, offline, and seamless — the subject sheet is indexed
 `tick mod period`, the light and mist are sinusoids of `θ`, and `Frame(w,h,0) ==
-Frame(w,h,period)` still holds. Proven end to end in `examples/bust` (this file is lifted
-from it); the baking half is in `tools.md` §Baking.
+Frame(w,h,period)` still holds. The baking half — matte the subject with alpha, optionally a
+pseudo-3D turn — is in `tools.md` §Baking. (This kit is the *composite-over-a-live-scene*
+pattern; for the other subject technique, silkscreening, see `palette-cycle-kit.md`.)
 
 ## Why an alpha channel, and why premultiplied
 
@@ -98,7 +99,7 @@ br, bg, bb := bl*0.86*0.9, bl*0.86*0.98, bl*1.28   // a touch blue
 mb := sstep(0.46, 0.86, fbm(fx*2.4+mdx, fy*2.4+mdy, 4)) * (0.30 + 0.70*floor) * 0.55
 br += mb * 0.42; bg += mb * 0.47; bb += mb * 0.58
 
-// 3 · subject "over", relit: sample the premultiplied turn frame at the centered native px.
+// 3 · subject "over", relit: sample the premultiplied subject frame at the centered native px.
 sr, sg, sb, sa := subj(f, py-2*padY, c-padX)   // 0,0,0,0 where the subject isn't
 gr, gg, gbl, key := movingLight(fx, fy, aspect, theta)
 sr *= gr; sg *= gg; sb *= gbl
@@ -144,7 +145,8 @@ filmstrip:
   floats detached from the light.
 - **backdrop** — base `0.020`, glow `0.24` and radius `0.72`, blue bias `1.28`, floor
   darkening `0.06`.
-- **turn** (baked, in `bake.sh`) — yaw amplitude and keystone insets; see `tools.md`.
+- **turn** (a bake-time knob, if the subject is baked with a pseudo-3D turn) — yaw amplitude
+  and keystone insets; see `tools.md` §Baking.
 
 ## When NOT to reach for this
 

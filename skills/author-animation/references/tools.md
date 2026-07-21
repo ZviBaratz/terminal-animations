@@ -98,8 +98,18 @@ touch an edge. **Look at the silhouette** (render the alpha as ASCII, or open th
 and confirm the *whole* subject survived — not just the easy part. Concretely: keep *every*
 component above a size floor (not only the largest), set the background threshold high enough
 that lit subject pixels aren't classified as background, and assert a sane coverage fraction
-in the bake so a collapse fails loudly. `examples/bust`'s `clean.py` and its `TestBakedSheet`
+in the bake so a collapse fails loudly. `examples/bust`'s `clean.py` and its `TestAsset`
 alpha guard are the worked version.
+
+**Or silkscreen the subject — recolor at run time.** When the subject's *subtle shading* is
+exactly what's failing at low resolution (a photo going banded and muddy, a marble bust that
+reads as a broken photograph), don't light it — reduce it. Bake only a **luminance + alpha**
+matte (contrast-stretched so the tones fill the ramp, de-speckled so no watermark surfaces
+under quantization), then at run time **posterize** the luminance into a few flat bands and
+map each to a bold flat ink, **cycling the palette** for motion while the geometry stays
+frozen. A terminal is bad at subtle and spectacular at bold; flat saturated color is what it
+renders best, so this often beats trying to light realism it can't show. `palette-cycle-kit.md`
+is the paste-ready code and `examples/bust` the worked piece.
 
 ## The headless colour gate
 

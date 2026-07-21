@@ -13,23 +13,29 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Added
 
-- **`examples/bust`** — the worked example of **"bake the subject, synthesize the scene"**
-  (`references/atmosphere-kit.md`, `references/tools.md` §Baking): a marble bust that is
-  *lit and turning in mist*, where only the subject is baked and the whole atmosphere is
-  live. At author time `clean.py` (pure Pillow) mattes the **whole** bust — head *and*
-  shoulders — off its watermarked white field into an RGBA cut-out (flooding only near-pure
-  white so lit marble that touches the frame isn't eaten, keeping every component above a
-  size floor so a highlight can't split off the body), and Pillow warps it into a seamless
-  **pseudo-3D turn** (a perspective keystone, yaw = `A·sinθ`), baked *premultiplied* so the
-  downscale carries no cutout halo. The 72 RGBA frames are stacked into `frames.png`,
-  embedded with `go:embed` and decoded once. `Frame(w, h, tick)` then composites the subject,
-  every tick, over a **runtime** scene — a lit backdrop, drifting `fbm` mist behind and in
-  front, and a warm key light that **orbits** the head with a cool silhouette rim — all pure
-  functions of the loop phase, so the piece stays offline, deterministic, and seamless. A
-  light and a fog that move can't be frozen, which is why the frames keep an alpha channel.
-  The watermarked source is never committed. `bust_test.go` pins the `h×w` contract,
-  no-panic, determinism, the seamless loop, live motion, a golden, and an alpha-integrity
-  guard on the baked sheet (a regression test against matte amputation).
+- **`examples/bust`** — the worked example of **"silkscreen the subject, cycle the palette"**
+  (`references/palette-cycle-kit.md`, `references/tools.md` §Baking): a classical marble bust
+  reimagined as an Andy-Warhol pop-art grid — the same head tiled 3×3, each panel in a bold
+  flat colorway, a diagonal wave of recoloring rippling across the grid forever. It is the
+  answer to *why* a "realistic" bust kept falling flat: a terminal is bad at subtle and
+  spectacular at bold, so at half-block resolution the marble's gentle gradients collapse into
+  banded mud, while flat saturated color is what truecolor half-blocks do best. So the bust is
+  no longer rendered accurately — it is screenprinted. At author time `clean.py` (pure Pillow)
+  mattes the **whole** bust off its watermarked white field (flooding only near-pure white so
+  lit marble that touches the frame isn't eaten, keeping every component above a size floor so
+  a highlight can't split off the body), then bakes a compact **luminance + alpha** asset
+  (`bust_lum.png`, ~25 KB): the marble's narrow tonal range is contrast-stretched to fill the
+  ramp and the stock watermark de-speckled so it can't surface under posterization.
+  `Frame(w, h, tick)` posterizes that luminance into four flat bands and maps each band — and
+  the silhouette's background — to one of nine curated Classic-Warhol-pop colorways, chosen per
+  panel by a continuous phase **plus the panel's diagonal position**, so the recoloring reads
+  as a wave; the crossfade is **hue-aware** (interpolated in HSV along the shorter arc) so two
+  clashing colorways sweep through vivid hues instead of desaturating to gray. All the motion is
+  color and the geometry never moves; the colorway index advances by exactly `len(colorways)`
+  per period, so the loop is byte-identical at the seam. Pure, offline, deterministic. The
+  watermarked source is never committed. `bust_test.go` pins the `h×w` contract, no-panic,
+  determinism, the seam, live motion, a golden, an asset-integrity guard (against matte
+  amputation), and a pop-art guard (distinct high-chroma colors + the grid gutter).
 - **`examples/torus`** — a third reference animation, and the first to demonstrate the
   **top rung of the resolution ladder**: a pure, deterministic **braille** 3D wireframe
   torus that tumbles about two axes, removes its own hidden lines with a per-dot depth
@@ -94,16 +100,21 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   merely-competent piece.** New craft: `craft.md` §"Making a subject move in 3D" (pseudo-3D
   turn, parallax, relighting sweep, atmospheric depth — the vocabulary that beats a pan) and
   the red flag that two quarter-phase sinusoids are an ellipse, not motion.
-- **"Layer a field behind the subject" became real machinery.** New reference
-  `references/atmosphere-kit.md` — paste-ready Go to composite a **baked subject (with alpha)
-  over a runtime-synthesized scene** (moving light, drifting `fbm` mist, lit backdrop, rim),
-  the pattern `examples/bust` now embodies. `tools.md` §Baking was rewritten to headline
-  *bake the subject, synthesize the scene* (with a **subject-integrity check** against matte
-  amputation and premultiplied-RGBA / non-ringing-downscale guidance) and to demote the
-  bake-a-finished-picture Ken Burns pan to the RED baseline. `techniques.md` gains a note on
-  routing a *photographic* subject (widen + light-as-sharpness; the sixel/kitty tier as a real
-  option), and the `tuner` is told its reach ends at sweeping constants — a missing layer or
-  wrong motion-model is an author fix.
+- **The skill gained *two* real subject techniques, as paste-ready machinery.** "Layer a field
+  behind the subject" and "screenprint a subject" are no longer slogans:
+  `references/atmosphere-kit.md` composites a **baked subject (with alpha) over a
+  runtime-synthesized scene** (moving light, drifting `fbm` mist, lit backdrop, rim), and the
+  new `references/palette-cycle-kit.md` **silkscreens a subject** — bake a luminance + alpha
+  matte, posterize it into flat bands at run time, and recolor the bands through curated
+  colorways with a hue-aware, seamless-looping crossfade (the pattern `examples/bust` now
+  embodies). `tools.md` §Baking was rewritten to headline **two** baking patterns beside the
+  RED bake-a-finished-picture pan — *composite over a live scene* and *bake a luminance+alpha
+  matte, do the color at run time* — each with the **subject-integrity check** against matte
+  amputation. `craft.md` / `effects.md` gain the load-bearing lesson that in a terminal **bold
+  flat color beats subtle gradient realism** — when a realistic subject underwhelms, silkscreen
+  it — and `techniques.md` notes routing a *photographic* subject (posterize/duotone, or widen
+  + light-as-sharpness; the sixel/kitty tier as a real option). The `tuner` is told its reach
+  ends at sweeping constants — a missing layer or wrong treatment is an author fix.
 - **`ansi2png.py` rasterizes glyph ink coverage, so a density ramp reads as a ramp.**
   Every printable glyph was painted as a flat block of its foreground colour, so `·` and
   `@` rasterized identically. For an engine that splits brightness between glyph density

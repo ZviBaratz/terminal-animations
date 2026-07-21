@@ -92,7 +92,10 @@ horizontal detail is capped at the column count. Mitigate it rather than fightin
 bake at a **higher native pixel resolution** (widen), and lean on **light and contrast to
 define form** — a raking key and a rim carve the silhouette and features the glyph grid
 can't resolve on its own (`atmosphere-kit.md`), which is why "dramatic lighting" does double
-duty as a *sharpness* tool here. If the deploy target is a known graphics-capable terminal
+duty as a *sharpness* tool here. Or sidestep the softness entirely: instead of preserving the
+continuous tone, **posterize the subject into a few flat bands and recolor them** — a terminal
+loves bold flat color, and a silkscreened subject reads *sharp* precisely because posterizing
+manufactures the hard edges the grid can resolve (`palette-cycle-kit.md`). If the deploy target is a known graphics-capable terminal
 and photographic fidelity is the whole point, the **graphics-protocol tier below is a real
 option, not only a future one** — bake to PNG and blit via sixel/kitty, falling back to the
 half-block ladder elsewhere.

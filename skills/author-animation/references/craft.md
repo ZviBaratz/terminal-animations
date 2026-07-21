@@ -76,6 +76,16 @@ Compose two or three of these — a turn under a sweeping light in drifting mist
 cut-out becomes a lit object in space. The machinery is `atmosphere-kit.md`; the motion
 verb you named on the Vision Card (SKILL §1) is what tells you which of these you owe.
 
+**Or don't move the geometry at all — move the color.** There is a second escape from the
+translate, and in a terminal it is often the stronger one: reduce the subject to a *graphic*
+and animate its palette. Posterize its luminance into a few flat bands and recolor them,
+cycling the colorways so a wave of recoloring sweeps across it — a Warhol silkscreen. This
+works *because* of the medium: a terminal is bad at subtle gradients and spectacular at bold
+flat color, so a subject whose realism is fighting the resolution gets *stronger* the moment
+you stop rendering it accurately. The machinery is `palette-cycle-kit.md`; `examples/bust` is
+the worked piece. Reach for it when the Vision Card's appeal is graphic or iconic; reach for
+the 3D and lighting moves above when the appeal is form and light.
+
 ## Two brightness channels
 
 Brightness can ride two independent channels, and how you split it is most of the
