@@ -1,6 +1,6 @@
 # bust — a classical bust under a slow, hypnotic color wash
 
-![a classical marble bust silkscreened under a slow diagonal color wash, an invisible 3×3 grid tinting it into coordinated zones as the hue drifts around the wheel — half-block truecolor, seamless loop](../../docs/bust.gif)
+![a classical marble bust silkscreened under a smooth, continuous diagonal color wash that rakes across it as the hue drifts slowly around the wheel — half-block truecolor, seamless loop](../../docs/bust.gif)
 
 > **Full fidelity:** the GIF above is 256-colour; the truecolor 24-bit capture is
 > [`docs/bust.mp4`](../../docs/bust.mp4) — closer to what the live terminal shows.
@@ -11,8 +11,8 @@
 </video>
 
 A looping terminal animation that treats a marble bust as a **silkscreen source**: one bust
-fills the pane, an invisible 3×3 grid divides it into nine color zones, and a gentle diagonal
-tint gradient drifts slowly around the color wheel forever. It is the author-animation skill's
+fills the pane, and a smooth, continuous diagonal tint gradient rakes across it while the whole
+palette drifts slowly around the color wheel forever. It is the author-animation skill's
 "**silkscreen the subject, cycle the palette**" pattern (`references/palette-cycle-kit.md`,
 `tools.md` §Baking): the bust's luminance is matted and baked once; all the color, and all the
 motion, is a pure function of `tick` in Go. Nothing is installed to run it.
@@ -27,27 +27,28 @@ high-contrast, saturated color is exactly what truecolor half-blocks do best. So
 rendering the marble accurately and *screenprint* it — posterize its luminance into four flat
 tones and recolor them, the way Warhol silkscreened Marilyn.
 
-A first pop-art cut tiled **nine clashing busts** in a hard grid. It read, but it was a strobe,
-not a spell. This refinement keeps the silkscreen and makes it **hypnotic**: one bust instead of
-nine, an invisible color-zone overlay instead of framed panels, and a slow drift through
-**analogous** (neighboring) hues instead of clashing pop. All the aggression is gone; all the
-motion is a slow, coordinated breath of color.
+The palette then took two more turns. A pop-art wall of **nine clashing tiled busts** read, but
+it was a strobe, not a spell. Pulling it back to **one bust under a 3×3 color-zone overlay** was
+mellower — but once the palette went analogous (neighboring hues), the hard zone boundaries read
+as a *rendering artifact*, a tear across the image, rather than an intentional grid. So the grid
+came out entirely: the color now varies **continuously**, a single smooth wash with no zones and
+no edges. All the aggression is gone; all the motion is a slow, coordinated breath of color.
 
 ## Vision Card
 
 - **Subject** — one classical marble bust as a silkscreen source: a single luminance + alpha
   matte, fit once across the whole pane, posterized to four flat tones. No 3D, no relighting.
-- **Grid** — a 3×3 **color-zone overlay with no visible seams**. It never moves and never cuts
-  the bust; it only chooses which zone's colorway recolors each pixel, so the grid is felt
-  purely through color — a subtle segmentation in the field, a gentle gradient across the head.
-- **Motion verb** — *breathing*. A gentle diagonal recoloring gradient drifts across the bust
-  and, over the loop, rotates through every hue. The geometry never moves.
+- **Color field** — a smooth, continuous diagonal gradient. There is no grid and no seam; the
+  colorway is a pure function of screen position, so the tint rakes across the bust like light,
+  never stepping. This is the fix for the zoned cut, whose hard edges read as an artifact.
+- **Motion verb** — *breathing*. The gentle diagonal wash drifts and, over the loop, rotates
+  through every hue. The geometry never moves.
 - **Light** — none. Flat color fields; the marble's own tonal map drives the posterization.
 - **Palette** — analogous drift: nine colorways whose base hue steps evenly around the wheel,
   each a small dark→bright ramp of one hue neighborhood at moderate saturation. Any single frame
-  sits in a narrow, coordinated hue band; adjacent zones are always close — rich, never clashing.
-- **The one special idea** — a single classical bust dissolving through slow, coordinated color
-  under an invisible silkscreen grid, a diagonal tint gradient rotating around the wheel forever.
+  sits in a narrow, coordinated hue band — rich, never clashing.
+- **The one special idea** — a single classical bust dissolving through a slow, continuous color
+  wash, a diagonal tint gradient rotating around the wheel forever.
 
 ## What it demonstrates
 
@@ -57,18 +58,15 @@ motion is a slow, coordinated breath of color.
   computed live; the subject is a still. This is the fix for this example's earlier cuts, which
   were the anti-pattern for the medium: a photograph given a camera move, subtle where the
   terminal wanted bold.
-- **One subject, a color-zone overlay — not a tiled grid.** The bust is fit *once* across the
-  whole pane, so it is one continuous, recognizable head. The 3×3 grid is only a selector: each
-  pixel's zone decides which colorway recolors it. Nine color treatments over one image, no
-  seams — the grid reads through the color alone.
-- **Motion is color, not geometry.** Each zone crossfades through the nine colorways, indexed by
-  a continuous phase **plus a small diagonal offset** `rippleSpread·(gx+gy)`, so the recoloring
-  reads as a gentle wave travelling diagonally across the bust while the whole thing rotates
-  slowly around the hue wheel.
-- **Coordinated, not clashing — the mellow lever.** `rippleSpread` (< 1) keeps neighboring zones
-  close in hue, so the nine zones read as a coordinated gradient rather than nine fighting
-  panels; the long `period` makes the drift a slow breath. Together they are the "hypnotic, not
-  seizure-inducing" knobs — spatial contrast and temporal speed, tuned by eye.
+- **A continuous color field — no zones, no edges.** The bust is fit *once* across the whole
+  pane, so it is one continuous, recognizable head, and the colorway is a **continuous function
+  of screen position**: a smooth diagonal term offsets the palette phase per pixel, so the tint
+  gradient rakes the image with no hard boundaries. (An earlier cut quantized position into a
+  3×3 grid; with analogous hues those boundaries read as an artifact, so they were dropped.)
+- **Motion is color, not geometry.** The whole palette advances through the nine colorways over
+  one `period`, and the diagonal term (`hueSweep`) sets how far the hue drifts from one corner to
+  the other. Together they read as a gentle wash travelling diagonally while the image rotates
+  slowly around the hue wheel — a slow breath, not a strobe.
 - **Hue-aware crossfades.** Blending two colorways in RGB passes through gray mud. So the
   crossfade interpolates in HSV along the shorter hue arc, keeping saturation and value high —
   the transition drifts through clean, vivid hues instead of desaturating at the midpoint.
@@ -84,9 +82,9 @@ motion is a slow, coordinated breath of color.
   a drifting color field.
 - **Fidelity tier — half blocks.** Every cell is a `▀`: foreground paints the upper pixel,
   background the lower, so the visible grid is `w × 2h` independent 24-bit pixels.
-- **A seamless forever-loop.** Every zone's colorway index advances by exactly `len(colorways)`
-  over one `period`, so `Frame(w,h,0)` and `Frame(w,h,period)` are **byte-identical** — pinned by
-  `TestLoopSeam`.
+- **A seamless forever-loop.** At every pixel the colorway index advances by exactly
+  `len(colorways)` over one `period`, so `Frame(w,h,0)` and `Frame(w,h,period)` are
+  **byte-identical** — pinned by `TestLoopSeam`.
 - **Determinism.** `Frame(w, h, tick)` is pure — no wall clock, no `math/rand`. Tests pin the
   `h×w` contract, no-panic on any `(w, h, tick)`, byte-stability, the seam, that consecutive
   frames move, the decoded-asset integrity, the color field, and a golden.
@@ -115,7 +113,7 @@ go test ./... -run TestGolden -update                 # asset changed ⇒ refres
 ```
 
 `clean.py` needs `python3` + Pillow on `PATH` (author-time only). The **palette** and **motion**
-constants (the colorways, `period`, `rippleSpread`, `fill`, `vPlace`, the posterization) live in
+constants (the colorways, `period`, `hueSweep`, `fill`, `vPlace`, the posterization) live in
 `bust.go` and are documented in `references/palette-cycle-kit.md` — all swept **by eye** against
 the `ansi2png` filmstrip, per the plugin's "tune by looking, not arithmetic" loop. Posterization
 is unforgiving of a stock watermark, so `clean.py` de-speckles it and the emitted asset is

@@ -136,11 +136,11 @@ func hueLerp(c0, c1 rgb, t float64) rgb {
 
 ## 4 · Move the color, not the geometry — and loop seamlessly
 
-Index each region's colorway by a **continuous phase plus a spatial offset**, so the
-recoloring reads as a *directed wave*, not a uniform flicker. For a grid, the region's diagonal
-position `(gx+gy)` is the offset; for a single subject, use a band index or a screen
-coordinate. The seam is free when the index advances by exactly `len(colorways)` over one
-period:
+Index the colorway by a **continuous phase plus a spatial offset**, so the recoloring reads as a
+*directed wave*, not a uniform flicker. The spatial offset can be **discrete** — a region index
+like a grid's diagonal `(gx+gy)`, giving crisp tiles — or **continuous** — a screen coordinate
+like `(fx+fy)`, giving a smooth gradient with no edges (see the variants below). The seam is free
+when the index advances by exactly `len(colorways)` over one period:
 
 ```go
 const period = 240
@@ -165,18 +165,38 @@ keeps neighbors close in hue — a coordinated gradient rather than clashing til
 contrast, `period` is *temporal* speed. Slow the period **and** shrink the spread for a mellow
 drift; raise both for a fast pop wave.
 
-**Two structural variants — tiled subjects, or one subject under a zone overlay.**
+**Three structural variants — pick by how much you want the grid to *show*.**
 
-- **Tiled grid:** fit the subject *inside each region* (a small copy per cell). Nine busts, a
-  Warhol wall. Each cell samples its own contained subject.
-- **One subject, zone overlay:** fit the subject **once across the whole pane**, so it is one
-  continuous image; the grid region a pixel falls in only *selects which colorway recolors it*.
-  Nine color treatments over one recognizable form, no seams — the grid is felt purely through
-  color. This is the mellower reading (`examples/bust`): with an analogous palette and a small
-  `rippleSpread`, the zones read as a coordinated tint gradient across one subject rather than a
-  patchwork. Watch for the diagonal metric collapsing: `(gx+gy)` gives *five* diagonal levels,
-  not nine distinct tiles (cells on an anti-diagonal share a color) — which reads as an elegant
-  gradient; use a per-cell index `(gy*grid+gx)` if you truly need nine distinct squares.
+- **Tiled subjects (bold pop):** fit the subject *inside each region* (a small copy per cell).
+  Nine busts, a Warhol wall. Each cell samples its own contained subject. Pairs with a clashing
+  palette and `rippleSpread ≥ 1`.
+- **One subject, discrete zone overlay:** fit the subject **once across the whole pane**, so it
+  is one continuous image; the region a pixel falls in only *selects* its colorway. Nine color
+  treatments over one recognizable form. The diagonal metric collapses — `(gx+gy)` gives *five*
+  levels, not nine distinct tiles (anti-diagonal cells share a color); use `(gy*grid+gx)` for
+  nine.
+- **One subject, continuous field (mellow / hypnotic):** same single fit, but the spatial offset
+  is a **continuous** screen coordinate, so the colorway varies smoothly per pixel — no zones, no
+  edges (`examples/bust`). Compute the crossfade per pixel; you only need the `bg` and the one
+  band you sample, so it's two `hueLerp`s, not a whole colorway:
+
+  ```go
+  fx, fy := float64(c)/paneW, float64(py)/paneH // 0..1 across the pane
+  f := float64(n)*phase + hueSweep*(fx+fy)      // continuous ⇒ a smooth diagonal wash
+  i0 := ((int(math.Floor(f)) % n) + n) % n
+  c0, c1 := colorways[i0], colorways[(i0+1)%n]
+  frac := smoothstep(f - math.Floor(f))
+  bg  := hueLerp(c0.bg, c1.bg, frac)
+  ink := hueLerp(c0.band[posterize(lum)], c1.band[posterize(lum)], frac)
+  ```
+
+> **The load-bearing lesson (learned the hard way in `examples/bust`): a hard boundary between
+> two *near-identical* colors reads as a rendering artifact, not a design.** Discrete zones only
+> look intentional when neighbors differ enough to be read as distinct tiles — i.e. a **bold**
+> palette. The moment you go **analogous** for a mellow, hypnotic feel, drop the zones and use a
+> **continuous** field: with tiny hue steps the subject's own band structure hides the zones when
+> the boundary is soft, and turns them into a visible tear when it's hard. Mellow ⇒ continuous;
+> bold ⇒ discrete tiles are fine.
 
 ## 5 · Compose the pixel
 
@@ -202,10 +222,12 @@ big bust keep `fill` ≈ 1.0 so the crown isn't cropped.
 - **the colorways** — the whole identity. Clashing flat inks → pop; evenly-stepped analogous →
   hypnotic. Pick the family for the mood.
 - **`period`** — loop length (temporal speed); slower reads as more hypnotic.
-- **`rippleSpread`** — spatial hue contrast between neighboring regions. `< 1` coordinates them
-  into a gradient (mellow); `≥ 1` makes bold, distinct tiles (pop). The spatial partner of
-  `period`. Note the subject's band structure visually dominates a *tiny* spread — if the zones
-  vanish, raise it until they read; if it clashes, lower it.
+- **spatial spread** — how far the hue drifts across the frame. Discrete (`rippleSpread`, per
+  region): `≥ 1` makes bold, distinct tiles (pop); `< 1` tries to coordinate them but risks the
+  artifact above. Continuous (`hueSweep`, per pixel): the mellow choice — a smooth gradient with
+  no edges; `0` makes the whole subject one uniform hue that only drifts in time. Either way it's
+  the *spatial* partner of `period` (temporal): slow the period **and** keep the spread gentle for
+  a hypnotic wash; raise both for a fast pop wave.
 - **posterization band count / thresholds** — four flat tones is the silkscreen sweet spot;
   more bands = more detail but less graphic punch.
 - **the spatial offset** — which direction/shape the wave travels (diagonal, radial, per-band),

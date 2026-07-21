@@ -1,6 +1,6 @@
 // Package bust is a looping terminal animation of a classical marble bust silkscreened under a
-// slow, hypnotic wash of color: one bust fills the pane, an invisible 3×3 grid divides it into
-// nine color zones, and a gentle diagonal tint gradient rotates around the color wheel forever.
+// slow, hypnotic wash of color: one bust fills the pane and a gentle, continuous diagonal tint
+// gradient rakes across it, rotating around the color wheel forever.
 //
 // It is the author-animation skill's "silkscreen the subject, cycle the palette" pattern
 // (references/tools.md §Baking, references/palette-cycle-kit.md) — the answer to why the first
@@ -10,23 +10,23 @@
 // at bold flat color. So we stop rendering the marble accurately and treat it as a screenprint
 // source: posterize its luminance into a few flat tonal bands and recolor those bands, the way
 // Warhol silkscreened Marilyn. The classical form, no longer fighting the medium, becomes the
-// asset. A first pop-art cut tiled nine clashing busts; this refinement keeps the silkscreen
-// but makes it *hypnotic* — one bust, coordinated color, a slow breath instead of a strobe:
+// asset. Two earlier cuts explored the palette: a pop-art wall of nine clashing tiled busts
+// (a strobe), then one bust under a 3×3 color-zone overlay (mellower, but the hard zone edges
+// read as an artifact once the hues were analogous). This cut drops the grid entirely — the
+// color varies *continuously*, so it is one bust, coordinated color, a slow breath, no edges:
 //
 //   - Source & matte: a still of a marble bust on a watermarked white field. clean.py mattes
 //     the whole bust off its background and bakes a compact luminance + alpha asset
 //     (bust_lum.png). The stock watermark is erased and never enters the repo. See clean.py.
-//   - Subject: one still, fit once across the whole pane — no motion is baked, and no per-panel
-//     tiling. Frame posterizes the baked luminance into four flat bands and maps each band (and
-//     the silhouette's background) to a colorway ink.
-//   - Grid: a 3×3 color-zone overlay with no visible seams. It never moves and never cuts the
-//     bust; it only chooses which zone's colorway recolors each pixel of the one continuous
-//     head, so the grid is felt purely through color.
-//   - Motion — all color, no geometry. Each zone crossfades through a set of analogous colorways
-//     whose base hue steps evenly around the wheel, phase-offset by position (rippleSpread keeps
-//     neighbors close in hue) so a gentle recoloring gradient drifts diagonally and, over the
-//     loop, rotates through every hue. Every term is a function of a looping phase, so the loop
-//     is seamless (Frame(w,h,0) == Frame(w,h,period); see bust_test.go).
+//   - Subject: one still, fit once across the whole pane — no motion is baked. Frame posterizes
+//     the baked luminance into four flat bands and maps each band (and the silhouette's
+//     background) to a colorway ink.
+//   - Motion — all color, no geometry. The colorway is a *continuous* function of screen
+//     position: a hue-aware crossfade through a set of analogous colorways whose base hue steps
+//     evenly around the wheel, indexed by a looping phase plus a smooth diagonal term (hueSweep)
+//     — so a gentle tint gradient rakes the bust and, over the loop, rotates through every hue,
+//     with no zones and no hard edges. Every term is a function of the looping phase, so the
+//     loop is seamless (Frame(w,h,0) == Frame(w,h,period); see bust_test.go).
 //   - Fidelity tier: half blocks (▀). Each cell carries two independent 24-bit pixels
 //     (fg = top, bg = bottom), so the visible grid is w × 2h truecolor pixels.
 //   - Deterministic & offline: bust_lum.png is embedded (go:embed), decoded once at init;
@@ -84,13 +84,11 @@ func init() {
 // full rotation around the hue wheel takes ~24s at 30fps, a slow hypnotic breath.
 const period = 720
 
-// grid is the number of color zones per axis (a 3×3 overlay on the one bust).
-const grid = 3
-
-// rippleSpread is the per-zone diagonal phase offset, in colorway-steps across the whole grid.
-// Small (< 1) keeps neighboring zones close in hue, so the recoloring reads as one coordinated
-// gradient drifting across the bust rather than nine clashing panels — the mellow-vs-pop lever.
-const rippleSpread = 0.75
+// hueSweep is how far the hue drifts across the pane's diagonal, in colorway-steps. The color
+// varies *continuously* from one corner toward the other — no zones, no hard edges — so a gentle
+// diagonal wash rakes the bust. Small keeps it a coordinated, mellow gradient; 0 would make the
+// whole bust a single uniform hue that only drifts in time.
+const hueSweep = 1.1
 
 // vPlace vertically places the head in the pane (0 = top, 1 = bottom). Just above center leaves
 // a little more room below for the neck and shoulder.
@@ -232,14 +230,6 @@ func hueLerp(c0, c1 rgb, t float64) rgb {
 	return hsv2rgb(h0+dh*t, s0+(s1-s0)*t, v0+(v1-v0)*t)
 }
 
-func lerpColorway(a, b colorway, t float64) colorway {
-	out := colorway{bg: hueLerp(a.bg, b.bg, t)}
-	for i := range out.band {
-		out.band[i] = hueLerp(a.band[i], b.band[i], t)
-	}
-	return out
-}
-
 func lerpRGB(a, b rgb, t float64) rgb {
 	return rgb{a.r + (b.r-a.r)*t, a.g + (b.g-a.g)*t, a.b + (b.b-a.b)*t}
 }
@@ -315,54 +305,40 @@ func Frame(w, h, tick int) string {
 	}
 	phase := float64(((tick%period)+period)%period) / period
 	n := len(colorways)
-
-	// Resolve each of the 3×3 zones' effective colorway once: a hue-aware crossfade between
-	// consecutive colorways, indexed by a continuous phase plus a small diagonal offset so a
-	// gentle recoloring gradient drifts across the bust. rippleSpread keeps neighboring zones
-	// close in hue (coordinated, not clashing). Over one period the index advances by exactly n
-	// for every zone, so each returns to its start ⇒ a seamless loop.
-	var eff [grid][grid]colorway
-	for gy := 0; gy < grid; gy++ {
-		for gx := 0; gx < grid; gx++ {
-			f := float64(n)*phase + rippleSpread*float64(gx+gy)
-			i0f := math.Floor(f)
-			frac := f - i0f
-			i0 := ((int(i0f) % n) + n) % n
-			i1 := (i0 + 1) % n
-			eff[gy][gx] = lerpColorway(colorways[i0], colorways[i1], sstep(0, 1, frac))
-		}
-	}
+	nf := float64(n)
 
 	// Fit the whole bust once across the entire pane (w × 2h pixels); every pane pixel maps
-	// through this single fit, so the bust is one continuous image. The 3×3 grid only picks which
-	// zone's colorway recolors each pixel — no per-panel busts, no seams.
+	// through this single fit, so the bust is one continuous image.
 	paneW, paneH := float64(w), float64(2*h)
 	scale := math.Min(paneW/float64(assetW), paneH/float64(assetH)) * fill
 	ox := (paneW - float64(assetW)*scale) / 2
 	oy := (paneH - float64(assetH)*scale) * vPlace
 
-	// pixel returns the RGB (0..255) of one pane pixel at column c, pixel row py.
+	// pixel returns the RGB (0..255) of one pane pixel at column c, pixel row py. The colorway
+	// is a *continuous* function of position: the phase advances the whole set through the loop,
+	// and a smooth diagonal term (hueSweep · (fx+fy), fx,fy ∈ [0,1)) offsets it per pixel — so a
+	// gentle tint gradient rakes the image with no zones and no hard edges. Over one period the
+	// index advances by exactly n at every pixel, so each returns to its start ⇒ a seamless loop.
 	pixel := func(c, py int) rgb {
-		gx := c * grid / w
-		if gx >= grid {
-			gx = grid - 1
-		}
-		gy := py * grid / (2 * h)
-		if gy >= grid {
-			gy = grid - 1
-		}
-		cw := eff[gy][gx]
+		fx, fy := float64(c)/paneW, float64(py)/paneH
+		f := nf*phase + hueSweep*(fx+fy)
+		i0f := math.Floor(f)
+		frac := sstep(0, 1, f-i0f)
+		i0 := ((int(i0f) % n) + n) % n
+		c0, c1 := colorways[i0], colorways[(i0+1)%n]
+		bg := hueLerp(c0.bg, c1.bg, frac)
 
 		ax := (float64(c)+0.5-ox)/scale - 0.5
 		ay := (float64(py)+0.5-oy)/scale - 0.5
 		if ax < -0.5 || ax > float64(assetW)-0.5 || ay < -0.5 || ay > float64(assetH)-0.5 {
-			return cw.bg // outside the bust → the zone's flat background field
+			return bg // outside the bust → the flat background field (same drifting hue)
 		}
 
 		lum, alpha := sample(ax, ay)
-		ink := cw.band[posterize(lum)]
+		bi := posterize(lum)
+		ink := hueLerp(c0.band[bi], c1.band[bi], frac)
 		// A crisp-but-not-jagged silhouette: blend ink over the flat background across the edge.
-		return lerpRGB(cw.bg, ink, sstep(0.35, 0.65, alpha))
+		return lerpRGB(bg, ink, sstep(0.35, 0.65, alpha))
 	}
 
 	var b strings.Builder
