@@ -1,26 +1,32 @@
-// Package bust is a looping terminal animation of a classical marble bust reimagined as an
-// Andy-Warhol pop-art grid: the same silkscreened head tiled 3×3, each panel in a bold flat
-// colorway, with a diagonal wave of recoloring rippling across the grid forever.
+// Package bust is a looping terminal animation of a classical marble bust silkscreened under a
+// slow, hypnotic wash of color: one bust fills the pane, an invisible 3×3 grid divides it into
+// nine color zones, and a gentle diagonal tint gradient rotates around the color wheel forever.
 //
 // It is the author-animation skill's "silkscreen the subject, cycle the palette" pattern
 // (references/tools.md §Baking, references/palette-cycle-kit.md) — the answer to why the first
-// two cuts of this example fell flat. A terminal is *bad* at subtle: a photographic bust
-// rendered "accurately" at half-block resolution collapses into banded hair and a muddy color
-// cast (an ellipse-panned still, then a pseudo-3D turn — both underwhelmed). A terminal is
-// *spectacular* at bold flat high-contrast color. So we stop rendering the marble accurately
-// and treat it as a screenprint source: posterize its luminance into a few flat tonal bands
-// and recolor those bands, the way Warhol silkscreened Marilyn. The classical form, no longer
-// fighting the medium, becomes the asset. The design:
+// cuts of this example fell flat. A terminal is *bad* at subtle: a photographic bust rendered
+// "accurately" at half-block resolution collapses into banded hair and a muddy color cast (an
+// ellipse-panned still, then a pseudo-3D turn — both underwhelmed). A terminal is *spectacular*
+// at bold flat color. So we stop rendering the marble accurately and treat it as a screenprint
+// source: posterize its luminance into a few flat tonal bands and recolor those bands, the way
+// Warhol silkscreened Marilyn. The classical form, no longer fighting the medium, becomes the
+// asset. A first pop-art cut tiled nine clashing busts; this refinement keeps the silkscreen
+// but makes it *hypnotic* — one bust, coordinated color, a slow breath instead of a strobe:
 //
 //   - Source & matte: a still of a marble bust on a watermarked white field. clean.py mattes
 //     the whole bust off its background and bakes a compact luminance + alpha asset
 //     (bust_lum.png). The stock watermark is erased and never enters the repo. See clean.py.
-//   - Subject: one still — no motion is baked. Frame posterizes the baked luminance into four
-//     flat bands and maps each band (and the silhouette's background) to a colorway ink.
-//   - Motion — all color, no geometry. The grid never moves. Each panel crossfades through a
-//     curated set of Warhol-pop colorways, phase-offset by its position so a recoloring wave
-//     sweeps the 3×3 diagonally. Every term is a function of a looping phase, so the loop is
-//     seamless (Frame(w,h,0) == Frame(w,h,period); see bust_test.go).
+//   - Subject: one still, fit once across the whole pane — no motion is baked, and no per-panel
+//     tiling. Frame posterizes the baked luminance into four flat bands and maps each band (and
+//     the silhouette's background) to a colorway ink.
+//   - Grid: a 3×3 color-zone overlay with no visible seams. It never moves and never cuts the
+//     bust; it only chooses which zone's colorway recolors each pixel of the one continuous
+//     head, so the grid is felt purely through color.
+//   - Motion — all color, no geometry. Each zone crossfades through a set of analogous colorways
+//     whose base hue steps evenly around the wheel, phase-offset by position (rippleSpread keeps
+//     neighbors close in hue) so a gentle recoloring gradient drifts diagonally and, over the
+//     loop, rotates through every hue. Every term is a function of a looping phase, so the loop
+//     is seamless (Frame(w,h,0) == Frame(w,h,period); see bust_test.go).
 //   - Fidelity tier: half blocks (▀). Each cell carries two independent 24-bit pixels
 //     (fg = top, bg = bottom), so the visible grid is w × 2h truecolor pixels.
 //   - Deterministic & offline: bust_lum.png is embedded (go:embed), decoded once at init;
@@ -73,28 +79,32 @@ func init() {
 	}
 }
 
-// period is the loop length in ticks: the grid cycles through all len(colorways) colorways
-// exactly once per period, so tick 0 and tick period render identically. Chosen for a slow,
-// hypnotic ripple (~8s at 30fps).
-const period = 240
+// period is the loop length in ticks: every zone cycles through all len(colorways) colorways
+// exactly once per period, so tick 0 and tick period render identically. Long on purpose — a
+// full rotation around the hue wheel takes ~24s at 30fps, a slow hypnotic breath.
+const period = 720
 
-// grid is the panel count per axis (3×3 Warhol grid).
+// grid is the number of color zones per axis (a 3×3 overlay on the one bust).
 const grid = 3
 
-// vPlace vertically places the head within its panel (0 = top, 1 = bottom). Just above center
-// leaves a little more room below for the neck and shoulder.
-const vPlace = 0.40
+// rippleSpread is the per-zone diagonal phase offset, in colorway-steps across the whole grid.
+// Small (< 1) keeps neighboring zones close in hue, so the recoloring reads as one coordinated
+// gradient drifting across the bust rather than nine clashing panels — the mellow-vs-pop lever.
+const rippleSpread = 0.75
 
-// fill scales the contained head past a pure letterbox so it dominates the panel like a real
-// Warhol portrait — a little over 1 crops only a sliver of hair/neck while filling the frame.
-const fill = 1.18
+// vPlace vertically places the head in the pane (0 = top, 1 = bottom). Just above center leaves
+// a little more room below for the neck and shoulder.
+const vPlace = 0.42
 
-// gutter is the flat matte color framing and separating the panels — a near-black that makes
-// the pop colors sing.
-var gutter = rgb{14, 12, 20}
+// fill scales the contained head relative to a pure letterbox. Just under 1 leaves a thin
+// breathing margin so the crown isn't flush to the pane edge; the near-square head letterboxes
+// with drifting flat-color side fields on a wide pane.
+const fill = 0.95
 
 // ---------------------------------------------------------------------------
-// Palette — curated Classic Warhol pop colorways.
+// Palette — analogous drift. Colorways whose base hue steps evenly around the wheel, so the
+// crossfade drifts smoothly through every hue over one loop while any single frame stays inside
+// a narrow, coordinated hue band (mellow, not clashing).
 // ---------------------------------------------------------------------------
 
 // rgb is a color in 0..255 float channels (kept float for clean interpolation).
@@ -107,20 +117,36 @@ type colorway struct {
 	band [4]rgb
 }
 
-// colorways are hand-designed, deliberately clashing 60s-silkscreen palettes. Consecutive
-// entries differ strongly so the diagonal crossfade sweeps through vivid hues, and the set is
-// cyclic (the last crossfades back into the first).
-var colorways = []colorway{
-	{rgb{0, 199, 178}, [4]rgb{{150, 0, 90}, {255, 40, 130}, {255, 225, 40}, {255, 248, 220}}},   // turquoise / magenta→pink→lemon
-	{rgb{255, 45, 120}, [4]rgb{{40, 20, 110}, {150, 50, 200}, {60, 210, 230}, {250, 252, 255}}}, // hot-pink / indigo→purple→cyan
-	{rgb{255, 120, 20}, [4]rgb{{0, 90, 110}, {0, 190, 180}, {180, 225, 40}, {255, 250, 225}}},   // orange / teal→turquoise→lime
-	{rgb{255, 222, 30}, [4]rgb{{200, 20, 50}, {255, 80, 40}, {230, 40, 170}, {255, 250, 245}}},  // lemon / crimson→orange→magenta
-	{rgb{95, 40, 180}, [4]rgb{{25, 18, 35}, {220, 30, 150}, {255, 140, 30}, {255, 230, 60}}},    // purple / black→magenta→orange
-	{rgb{30, 200, 225}, [4]rgb{{25, 30, 110}, {90, 70, 210}, {255, 80, 160}, {250, 252, 255}}},  // cyan / navy→violet→pink
-	{rgb{150, 215, 30}, [4]rgb{{200, 20, 140}, {230, 40, 50}, {255, 140, 25}, {255, 235, 70}}},  // lime / magenta→red→orange
-	{rgb{225, 25, 150}, [4]rgb{{0, 100, 120}, {0, 195, 220}, {255, 225, 50}, {255, 250, 230}}},  // magenta / teal→cyan→lemon
-	{rgb{255, 95, 90}, [4]rgb{{110, 40, 170}, {255, 55, 140}, {20, 200, 180}, {255, 248, 222}}}, // coral / purple→pink→turquoise
+// colorwayCount is the number of hue stations around the wheel; the loop crossfades from each
+// to the next, so over one period the bust rotates once through every hue.
+const colorwayCount = 9
+
+// analogousColorway builds one station at base hue h (turns, [0,1)). The four bands are an
+// analogous ramp — a small hue spread, moderate saturation, rising value from a deep shadow to
+// a near-white highlight — over a dark, low-saturation field of the same hue family, so the
+// lit form reads against a coordinated background. hsv2rgb wraps the hue, so offsets may go
+// negative or past 1 freely.
+func analogousColorway(h float64) colorway {
+	return colorway{
+		bg: hsv2rgb(h-0.06, 0.42, 0.22),
+		band: [4]rgb{
+			hsv2rgb(h-0.02, 0.55, 0.32), // deepest shadow
+			hsv2rgb(h, 0.66, 0.60),      // mid
+			hsv2rgb(h+0.02, 0.52, 0.86), // light
+			hsv2rgb(h+0.03, 0.16, 1.00), // highlight (a light tint, not pure white)
+		},
+	}
 }
+
+// colorways are the analogous stations, evenly spaced around the hue wheel and cyclic (the last
+// crossfades back into the first, closing the loop where the wheel closes).
+var colorways = func() []colorway {
+	cws := make([]colorway, colorwayCount)
+	for i := range cws {
+		cws[i] = analogousColorway(float64(i) / colorwayCount)
+	}
+	return cws
+}()
 
 // ---------------------------------------------------------------------------
 // Color interpolation — hue-aware, so a crossfade between two clashing colorways sweeps
@@ -276,53 +302,13 @@ func posterize(lum float64) int {
 }
 
 // ---------------------------------------------------------------------------
-// Grid layout.
-// ---------------------------------------------------------------------------
-
-// partition splits `total` cells into `grid` panels separated by 1-cell gutters and framed by
-// a 1-cell border, returning each panel's start and size and an owner slice (owner[i] = panel
-// index, or -1 for a gutter/border cell). When the pane is too small for a border+gutters it
-// degrades gracefully to a bare split with no separators.
-func partition(total int) (owner []int, start, size [grid]int) {
-	owner = make([]int, max(total, 0))
-	for i := range owner {
-		owner[i] = -1
-	}
-	if total <= 0 {
-		return
-	}
-	border, gut := 1, 1
-	content := total - 2*border - (grid-1)*gut
-	if content < grid {
-		border, gut, content = 0, 0, total
-	}
-	base, extra := content/grid, content%grid
-	pos := border
-	for p := 0; p < grid; p++ {
-		s := base
-		if p < extra {
-			s++
-		}
-		start[p], size[p] = pos, s
-		for i := pos; i < pos+s && i < total; i++ {
-			owner[i] = p
-		}
-		pos += s
-		if p < grid-1 {
-			pos += gut
-		}
-	}
-	return
-}
-
-// ---------------------------------------------------------------------------
 // Frame.
 // ---------------------------------------------------------------------------
 
-// Frame renders the pop-art grid at `tick` into exactly h lines of exactly w visible cells (or
-// "" for a degenerate pane). Each cell is a half block ▀ — foreground = top pixel, background =
-// bottom — so the visible grid is w × 2h truecolor pixels. Pure in (w, h, tick) and
-// byte-identical every `period` ticks.
+// Frame renders the color-washed bust at `tick` into exactly h lines of exactly w visible cells
+// (or "" for a degenerate pane). Each cell is a half block ▀ — foreground = top pixel,
+// background = bottom — so the visible field is w × 2h truecolor pixels. Pure in (w, h, tick)
+// and byte-identical every `period` ticks.
 func Frame(w, h, tick int) string {
 	if w <= 0 || h <= 0 {
 		return ""
@@ -330,13 +316,15 @@ func Frame(w, h, tick int) string {
 	phase := float64(((tick%period)+period)%period) / period
 	n := len(colorways)
 
-	// Resolve every panel's effective colorway once: a hue-aware crossfade between consecutive
-	// colorways, indexed by a continuous phase plus the panel's diagonal offset. Over one period
-	// the index advances by exactly n, so each panel returns to its start ⇒ a seamless loop.
+	// Resolve each of the 3×3 zones' effective colorway once: a hue-aware crossfade between
+	// consecutive colorways, indexed by a continuous phase plus a small diagonal offset so a
+	// gentle recoloring gradient drifts across the bust. rippleSpread keeps neighboring zones
+	// close in hue (coordinated, not clashing). Over one period the index advances by exactly n
+	// for every zone, so each returns to its start ⇒ a seamless loop.
 	var eff [grid][grid]colorway
 	for gy := 0; gy < grid; gy++ {
 		for gx := 0; gx < grid; gx++ {
-			f := float64(n)*phase + float64(gx+gy)
+			f := float64(n)*phase + rippleSpread*float64(gx+gy)
 			i0f := math.Floor(f)
 			frac := f - i0f
 			i0 := ((int(i0f) % n) + n) % n
@@ -345,33 +333,30 @@ func Frame(w, h, tick int) string {
 		}
 	}
 
-	colOwner, colStart, colSize := partition(w)
-	rowOwner, rowStart, rowSize := partition(h)
+	// Fit the whole bust once across the entire pane (w × 2h pixels); every pane pixel maps
+	// through this single fit, so the bust is one continuous image. The 3×3 grid only picks which
+	// zone's colorway recolors each pixel — no per-panel busts, no seams.
+	paneW, paneH := float64(w), float64(2*h)
+	scale := math.Min(paneW/float64(assetW), paneH/float64(assetH)) * fill
+	ox := (paneW - float64(assetW)*scale) / 2
+	oy := (paneH - float64(assetH)*scale) * vPlace
 
 	// pixel returns the RGB (0..255) of one pane pixel at column c, pixel row py.
 	pixel := func(c, py int) rgb {
-		gx := colOwner[c]
-		gy := rowOwner[py/2]
-		if gx < 0 || gy < 0 {
-			return gutter
+		gx := c * grid / w
+		if gx >= grid {
+			gx = grid - 1
 		}
-		pw, ph := colSize[gx], 2*rowSize[gy]
-		if pw <= 0 || ph <= 0 {
-			return gutter
+		gy := py * grid / (2 * h)
+		if gy >= grid {
+			gy = grid - 1
 		}
-		lx := float64(c-colStart[gx]) + 0.5
-		ly := float64(py-2*rowStart[gy]) + 0.5
 		cw := eff[gy][gx]
 
-		// contain-fit the whole head in the panel (letterboxed), so the face reads at any panel
-		// aspect; the flat background fills the margins — a Warhol color field, not empty space.
-		scale := math.Min(float64(pw)/float64(assetW), float64(ph)/float64(assetH)) * fill
-		ox := (float64(pw) - float64(assetW)*scale) / 2
-		oy := (float64(ph) - float64(assetH)*scale) * vPlace
-		ax := (lx-ox)/scale - 0.5
-		ay := (ly-oy)/scale - 0.5
+		ax := (float64(c)+0.5-ox)/scale - 0.5
+		ay := (float64(py)+0.5-oy)/scale - 0.5
 		if ax < -0.5 || ax > float64(assetW)-0.5 || ay < -0.5 || ay > float64(assetH)-0.5 {
-			return cw.bg // outside the contained head → flat background field
+			return cw.bg // outside the bust → the zone's flat background field
 		}
 
 		lum, alpha := sample(ax, ay)

@@ -15,27 +15,31 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 - **`examples/bust`** — the worked example of **"silkscreen the subject, cycle the palette"**
   (`references/palette-cycle-kit.md`, `references/tools.md` §Baking): a classical marble bust
-  reimagined as an Andy-Warhol pop-art grid — the same head tiled 3×3, each panel in a bold
-  flat colorway, a diagonal wave of recoloring rippling across the grid forever. It is the
-  answer to *why* a "realistic" bust kept falling flat: a terminal is bad at subtle and
+  under a slow, hypnotic color wash — one bust fills the pane, an invisible 3×3 grid divides it
+  into nine color zones, and a gentle diagonal tint gradient drifts around the hue wheel forever.
+  It is the answer to *why* a "realistic" bust kept falling flat: a terminal is bad at subtle and
   spectacular at bold, so at half-block resolution the marble's gentle gradients collapse into
-  banded mud, while flat saturated color is what truecolor half-blocks do best. So the bust is
-  no longer rendered accurately — it is screenprinted. At author time `clean.py` (pure Pillow)
-  mattes the **whole** bust off its watermarked white field (flooding only near-pure white so
-  lit marble that touches the frame isn't eaten, keeping every component above a size floor so
-  a highlight can't split off the body), then bakes a compact **luminance + alpha** asset
-  (`bust_lum.png`, ~25 KB): the marble's narrow tonal range is contrast-stretched to fill the
-  ramp and the stock watermark de-speckled so it can't surface under posterization.
-  `Frame(w, h, tick)` posterizes that luminance into four flat bands and maps each band — and
-  the silhouette's background — to one of nine curated Classic-Warhol-pop colorways, chosen per
-  panel by a continuous phase **plus the panel's diagonal position**, so the recoloring reads
-  as a wave; the crossfade is **hue-aware** (interpolated in HSV along the shorter arc) so two
-  clashing colorways sweep through vivid hues instead of desaturating to gray. All the motion is
-  color and the geometry never moves; the colorway index advances by exactly `len(colorways)`
-  per period, so the loop is byte-identical at the seam. Pure, offline, deterministic. The
-  watermarked source is never committed. `bust_test.go` pins the `h×w` contract, no-panic,
-  determinism, the seam, live motion, a golden, an asset-integrity guard (against matte
-  amputation), and a pop-art guard (distinct high-chroma colors + the grid gutter).
+  banded mud, while flat saturated color is what truecolor half-blocks do best. So the bust is no
+  longer rendered accurately — it is screenprinted. At author time `clean.py` (pure Pillow) mattes
+  the **whole** bust off its watermarked white field (flooding only near-pure white so lit marble
+  that touches the frame isn't eaten, keeping every component above a size floor so a highlight
+  can't split off the body), then bakes a compact **luminance + alpha** asset (`bust_lum.png`,
+  ~25 KB): the marble's narrow tonal range is contrast-stretched to fill the ramp and the stock
+  watermark de-speckled so it can't surface under posterization. `Frame(w, h, tick)` fits the bust
+  **once** across the whole pane (one continuous head, not a tiled grid), posterizes its luminance
+  into four flat bands, and maps each band — and the silhouette's background — to one of nine
+  **analogous** colorways whose base hue steps evenly around the wheel. Each of the 3×3 zones picks
+  its colorway by a continuous phase **plus a small diagonal offset** (`rippleSpread`), so the
+  recoloring reads as a gentle diagonal gradient across the one bust; the crossfade is **hue-aware**
+  (HSV along the shorter arc) so it drifts through clean vivid hues instead of desaturating to gray.
+  A long `period` and a sub-1 `rippleSpread` are the "hypnotic, not seizure-inducing" knobs —
+  temporal speed and spatial contrast — that keep neighboring zones coordinated and the drift a slow
+  breath (an earlier cut tiled nine *clashing* busts; this one is one bust, mellowed). All the motion
+  is color and the geometry never moves; every zone's colorway index advances by exactly
+  `len(colorways)` per period, so the loop is byte-identical at the seam. Pure, offline,
+  deterministic. The watermarked source is never committed. `bust_test.go` pins the `h×w` contract,
+  no-panic, determinism, the seam, live motion, a golden, an asset-integrity guard (against matte
+  amputation), and a color-field guard (many distinct colors + at least one saturated ink).
 - **`examples/torus`** — a third reference animation, and the first to demonstrate the
   **top rung of the resolution ladder**: a pure, deterministic **braille** 3D wireframe
   torus that tumbles about two axes, removes its own hidden lines with a per-dot depth

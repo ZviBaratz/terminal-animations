@@ -38,11 +38,19 @@ pure Pillow (see `examples/bust/clean.py` for the full white-on-white matte):
   Posterization is unforgiving — verify the emitted asset by eye.
 - Emit a compact **L + alpha** PNG (tens of KB). Decode it once with `go:embed`.
 
-## 2 · Curated colorways, not algorithmic hue-spin
+## 2 · Colorways set the whole mood — clashing pop *or* analogous calm
 
-Hand-design the palette. A set of *deliberately clashing* flat colorways reads as pop art; an
-even hue-rotation reads as a generic rainbow. Each colorway is a flat **background** plus one
-ink per luminance band:
+The palette is the identity, and its *harmony* is the mood knob. Two families, opposite feels:
+
+- **Deliberately clashing** flat colorways (consecutive entries far apart on the wheel) read as
+  **pop art** — electric, aggressive, Warhol. Hand-design these; don't compute them.
+- **Analogous** colorways whose base hue steps *evenly and slightly* around the wheel read as
+  **hypnotic** — coordinated, mellow, a slow tint drifting through every hue. These you *can*
+  compute (see below), and they don't become a "generic rainbow" **provided any single frame
+  stays in a narrow hue band** — i.e. the spatial spread is small (§4). A rainbow is the failure
+  where the whole screen shows the full wheel at once; a narrow window drifting slowly is not.
+
+Each colorway is a flat **background** plus one ink per luminance band:
 
 ```go
 type rgb struct{ r, g, b float64 } // 0..255, kept float for clean interpolation
@@ -69,6 +77,34 @@ func posterize(lum float64) int {
 	}
 	return b
 }
+```
+
+For the **analogous / hypnotic** family, generate the stations instead of hand-writing them —
+step the base hue evenly around the wheel, and build each colorway as a small analogous ramp
+(a slight hue spread, moderate saturation, rising value from a deep shadow to a light tint)
+over a dark, low-saturation field of the same hue family, so the lit form reads against a
+coordinated background (this is `examples/bust`):
+
+```go
+func analogousColorway(h float64) colorway { // h in turns; hsv2rgb wraps, so offsets may wrap
+	return colorway{
+		bg: hsv2rgb(h-0.06, 0.42, 0.22), // dark, muted field of the same hue family
+		band: [4]rgb{
+			hsv2rgb(h-0.02, 0.55, 0.32), // deepest shadow
+			hsv2rgb(h, 0.66, 0.60),      // mid
+			hsv2rgb(h+0.02, 0.52, 0.86), // light
+			hsv2rgb(h+0.03, 0.16, 1.00), // highlight — a light tint, not pure white
+		},
+	}
+}
+var colorways = func() []colorway {
+	const count = 9
+	cws := make([]colorway, count)
+	for i := range cws {
+		cws[i] = analogousColorway(float64(i) / count) // evenly spaced, cyclic
+	}
+	return cws
+}()
 ```
 
 ## 3 · Crossfade in hue space, or it turns to mud
@@ -101,18 +137,19 @@ func hueLerp(c0, c1 rgb, t float64) rgb {
 ## 4 · Move the color, not the geometry — and loop seamlessly
 
 Index each region's colorway by a **continuous phase plus a spatial offset**, so the
-recoloring reads as a *directed wave*, not a uniform flicker. For a grid, the panel's diagonal
+recoloring reads as a *directed wave*, not a uniform flicker. For a grid, the region's diagonal
 position `(gx+gy)` is the offset; for a single subject, use a band index or a screen
 coordinate. The seam is free when the index advances by exactly `len(colorways)` over one
 period:
 
 ```go
 const period = 240
+const rippleSpread = 1.0 // colorway-steps of spatial spread across the grid (see below)
 n := len(colorways)
 phase := float64(((tick%period)+period)%period) / period // 0..1
 
-// per panel (gx,gy): a hue-aware crossfade between consecutive colorways
-f := float64(n)*phase + float64(gx+gy) // diagonal offset ⇒ the wave travels
+// per region (gx,gy): a hue-aware crossfade between consecutive colorways
+f := float64(n)*phase + rippleSpread*float64(gx+gy) // diagonal offset ⇒ the wave travels
 i0 := ((int(math.Floor(f)) % n) + n) % n
 i1 := (i0 + 1) % n
 frac := f - math.Floor(f)
@@ -120,7 +157,26 @@ eff := lerpColorway(colorways[i0], colorways[i1], smoothstep(frac)) // hueLerp e
 ```
 
 Over one period `f` advances by exactly `n`, so every region returns to its start and
-`Frame(w,h,0) == Frame(w,h,period)` — byte-identical. Pin it with a loop-seam test.
+`Frame(w,h,0) == Frame(w,h,period)` — byte-identical. **`rippleSpread` is free of the seam**
+(a constant per-region offset), so it is a pure look knob: it sets how far apart neighboring
+regions sit on the wheel. `1.0` is one colorway-step per diagonal (bold, pop); a value **< 1**
+keeps neighbors close in hue — a coordinated gradient rather than clashing tiles. It and
+`period` are the two "hypnotic, not seizure-inducing" levers: `rippleSpread` is *spatial*
+contrast, `period` is *temporal* speed. Slow the period **and** shrink the spread for a mellow
+drift; raise both for a fast pop wave.
+
+**Two structural variants — tiled subjects, or one subject under a zone overlay.**
+
+- **Tiled grid:** fit the subject *inside each region* (a small copy per cell). Nine busts, a
+  Warhol wall. Each cell samples its own contained subject.
+- **One subject, zone overlay:** fit the subject **once across the whole pane**, so it is one
+  continuous image; the grid region a pixel falls in only *selects which colorway recolors it*.
+  Nine color treatments over one recognizable form, no seams — the grid is felt purely through
+  color. This is the mellower reading (`examples/bust`): with an analogous palette and a small
+  `rippleSpread`, the zones read as a coordinated tint gradient across one subject rather than a
+  patchwork. Watch for the diagonal metric collapsing: `(gx+gy)` gives *five* diagonal levels,
+  not nine distinct tiles (cells on an anti-diagonal share a color) — which reads as an elegant
+  gradient; use a per-cell index `(gy*grid+gx)` if you truly need nine distinct squares.
 
 ## 5 · Compose the pixel
 
@@ -134,20 +190,27 @@ ink := eff.band[posterize(lum)]
 px := lerpRGB(eff.bg, ink, smoothstep2(0.35, 0.65, alpha)) // flat bg outside the subject
 ```
 
-**Contain-fit for robustness.** Scale the subject to *fit* its region (letterboxed), not to
-fill it — a near-square head in a wide panel would otherwise crop to an unreadable slice. The
-flat background fills the margins as a color field (which is on-brand, not empty space). A
-small `fill` factor (~1.15×) lets it dominate like a real portrait while cropping only a
-sliver.
+**Contain-fit for robustness.** Scale the subject to *fit* (letterboxed), not to fill — a
+near-square head in a wide pane would otherwise crop to an unreadable slice. The flat
+background fills the margins as a color field (on-brand, not empty space). Fit against the
+**region** for the tiled variant, or against the **whole pane** for the one-subject overlay.
+A `fill` factor > 1 (~1.15×) makes a tiled subject dominate its cell like a portrait; for one
+big bust keep `fill` ≈ 1.0 so the crown isn't cropped.
 
 ## Tuning knobs (sweep by eye against the `ansi2png` filmstrip)
 
-- **the colorways** — the whole identity. Clashing and flat; design them, don't compute them.
-- **`period`** — loop length; slower reads as more hypnotic.
+- **the colorways** — the whole identity. Clashing flat inks → pop; evenly-stepped analogous →
+  hypnotic. Pick the family for the mood.
+- **`period`** — loop length (temporal speed); slower reads as more hypnotic.
+- **`rippleSpread`** — spatial hue contrast between neighboring regions. `< 1` coordinates them
+  into a gradient (mellow); `≥ 1` makes bold, distinct tiles (pop). The spatial partner of
+  `period`. Note the subject's band structure visually dominates a *tiny* spread — if the zones
+  vanish, raise it until they read; if it clashes, lower it.
 - **posterization band count / thresholds** — four flat tones is the silkscreen sweet spot;
   more bands = more detail but less graphic punch.
-- **the spatial offset** — which direction the wave travels (diagonal, radial, per-band).
-- **`fill` / placement** — how much the subject dominates its region.
+- **the spatial offset** — which direction/shape the wave travels (diagonal, radial, per-band),
+  and whether it tiles subjects or overlays zones on one subject (§4).
+- **`fill` / placement** — how much the subject dominates (per region, or once across the pane).
 - **optional grain** — a `bayer4` dither at band edges for a screenprint texture (default off;
   hard edges are the authentic silkscreen look).
 

@@ -97,7 +97,7 @@ func TestDeterministic(t *testing.T) {
 	}
 }
 
-// TestLoopSeam: the forever-loop is seamless at the phase level. Every panel's colorway is a
+// TestLoopSeam: the forever-loop is seamless at the phase level. Every zone's colorway is a
 // crossfade indexed by phase = tick mod period, and the diagonal index advances by exactly
 // len(colorways) over one period, so tick 0 and tick period — and an arbitrary offset one
 // period apart — render byte-identically.
@@ -131,35 +131,29 @@ func TestFramesDiffer(t *testing.T) {
 // colorCode captures the r;g;b of every foreground and background SGR truecolor set in a frame.
 var colorCode = regexp.MustCompile(`[34]8;2;(\d+);(\d+);(\d+)`)
 
-// TestPopArt guards the Vision Card's "clashing pop palette" and "3×3 grid" slots: a real
-// render must carry many distinct, high-chroma colors (not a muddy near-monochrome) and the
-// near-black gutter that frames the grid. A build that lost the palette or the grid fails here.
-func TestPopArt(t *testing.T) {
+// TestColorField guards the Vision Card's color slots: a real render carries many distinct
+// colors (the crossfade + posterized bands are alive, not a dead monochrome) and at least one
+// clearly saturated ink (the palette has hue, not grayscale). It deliberately does NOT assert
+// how *mellow* the palette is — coordinated-vs-clashing is the eye's call at the beauty gate,
+// not a threshold. There is no gutter to check: the 3×3 grid is a seamless color overlay.
+func TestColorField(t *testing.T) {
 	frame := Frame(150, 46, 10)
 	distinct := map[[3]int]bool{}
-	var vivid, hasGutter bool
+	var saturated bool
 	for _, m := range colorCode.FindAllStringSubmatch(frame, -1) {
 		r, _ := strconv.Atoi(m[1])
 		g, _ := strconv.Atoi(m[2])
 		b, _ := strconv.Atoi(m[3])
 		distinct[[3]int{r, g, b}] = true
-		mx := max(r, max(g, b))
-		mn := min(r, min(g, b))
-		if mx-mn > 120 { // a strongly saturated ink — the pop clash
-			vivid = true
-		}
-		if mx < 40 { // the near-black gutter/border
-			hasGutter = true
+		if max(r, max(g, b))-min(r, min(g, b)) > 60 { // a clearly colored (non-gray) ink
+			saturated = true
 		}
 	}
 	if len(distinct) < 12 {
 		t.Fatalf("only %d distinct colors — palette looks dead, want ≥ 12", len(distinct))
 	}
-	if !vivid {
-		t.Fatal("no high-chroma ink found — the palette is muddy, not pop")
-	}
-	if !hasGutter {
-		t.Fatal("no near-black gutter found — the 3×3 grid structure is missing")
+	if !saturated {
+		t.Fatal("no saturated ink found — the palette is grayscale, not color")
 	}
 }
 
