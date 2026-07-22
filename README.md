@@ -78,9 +78,10 @@ on any `(w, h, tick)`, determinism where pure, and a golden frame.
   MP4 with only `ffmpeg` + `python3`) and `record.sh` (the vhs path, which additionally
   needs `vhs` and `ttyd`).
 - `agents/tuner.md` — an optional subagent that drives the render → look → tune loop.
-- `examples/` — four **reference animations**, each built to the standalone convention
-  with its own preview, golden test and demo GIF. Three climb the resolution ladder; the
-  fourth shows composing with the ecosystem:
+- `examples/` — six **reference animations**, each built to the standalone convention
+  with its own preview, golden test and demo GIF. Three climb the resolution ladder, one
+  composes with the ecosystem, one silkscreens a subject, and one is the first stateful
+  `Animation`:
   - [`plasma/`](examples/plasma) — a half-block truecolor plasma (free-running).
   - [`nebula/`](examples/nebula) — a half-block drifting nebula field (seamless loop).
   - [`torus/`](examples/torus) — a **braille** 3D wireframe torus with hidden-line
@@ -89,6 +90,17 @@ on any `(w, h, tick)`, determinism where pure, and a golden frame.
   - [`saucer/`](examples/saucer) — a cartoon flying saucer drifting across a **[fresco](https://github.com/ZviBaratz/fresco)**
     aurora night sky, lighting the sky beneath it and trailing a tractor beam: the worked
     example of **building on a provider** instead of reimplementing it (free-running).
+  - [`bust/`](examples/bust) — a classical marble bust **silkscreened** under a slow
+    drifting colour wash (seamless loop): the worked example of the palette-cycle kit —
+    bake a luminance+alpha matte, posterize into flat bands, recolour at run time.
+  - [`life/`](examples/life) — a **half-block** Conway's Game of Life seeded with **8-fold
+    symmetry** (which its isotropic rules preserve for ever) and rendered as **cathedral
+    glass**: a breathing kaleidoscopic mandala that **fills the frame** — a rose window
+    whose cells **glow into one another**, cobalt and violet through ruby and gold to a
+    white core, blooming, cooling and reblooming (ambient) —
+    the first worked example of the stateful **`Animation`** interface (`Update`/`View`/
+    `Done`), not a pure `Frame`, and the worked lesson that a random-soup Life is noise
+    until symmetry gives it a focal point.
 
 ## Install
 

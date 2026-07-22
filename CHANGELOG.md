@@ -13,6 +13,72 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ### Added
 
+- **`examples/life`** — Conway's Game of Life as a **symmetric kaleidoscope**: a glowing
+  **rose window** of cathedral glass that blooms, cools, and reblooms — and the first
+  worked example of the stateful
+  **`Animation` interface** (`Update` / `View` / `Done`). The convention has always described
+  that shape — and the test contract even names a Life blinker and glider as its canonical
+  goldens — but every gallery piece was a pure `Frame(w, h, tick)`, so the interface had zero
+  worked examples. Life earns the stateful shape honestly: a cell's next value depends on its
+  neighbours, not on the tick, so there is no closed form to fold into a `Frame`. The
+  load-bearing idea is that a **random-soup Life is intrinsically noise** — a glyph in every
+  cell, no focal point, no negative space, which `craft.md` warns reads as texture, not weather
+  (two earlier cuts — braille cells, then ember-coloured soup — were rejected at the beauty gate
+  for exactly this). No colour treatment fixes noise; the fix is to change *what is simulated*.
+  Conway's rules are **isotropic**, so a seed built with a symmetry group stays symmetric for
+  every later generation, for free: seeding the soup with the full **8-fold (D4) symmetry of the
+  square** turns the identical churn into a mandala with a focal centre. The symmetry is never
+  enforced in the step (that would corrupt the physics) — it rides the rules' own equivariance,
+  from an exactly-symmetric seed (a fundamental wedge mirrored into all eight images). The sim is
+  confined to a **centred disc** that is grown to **fill the frame**: the sim runs on a *square
+  board larger than the pane* and the pane views a centred window into it, so a wide pane sees a
+  full-width band through the middle of the mandala, and a **radial vignette** fades the corners
+  (outside the disc) to black so the circle is sculpted by the fade rather than left as a small
+  medallion in a void. The square board is also what keeps the diagonal reflection exact — that
+  reflection is a lattice symmetry only about the **integer** centre, which a square gives for any
+  pane (a non-square board's diagonal maps cells off-grid), and confining growth to the interior
+  disc keeps it there (the side is rounded up to **odd** so the board is exactly symmetric about
+  that centre pixel — the cells never notice, but the halo's blur reads the whole board and an
+  even side leaves an edge tap present on one side and missing on the other). The ember
+  **treatment** carries over: a per-pixel **heat** field that a birth **ignites** toward
+  white-hot over a few frames and a death leaves to **decay** (a bright leading edge with a
+  decaying trail — the canonical "this is moving" signal; igniting rather than flashing a birth
+  on in one frame is what makes the motion read as a smooth breath, not a jump), and a sustain
+  that **cools with age** so settled regions dim to a low ember rather than sitting as stuck
+  bright points. In a symmetric field this turns flicker into a **pulse**: the whole mandala
+  breathes. On top of that field sits the colour pipeline, which is what makes it read as
+  *light*: a Life cell is one pixel, so painting heat directly gives hard-edged blocks whose
+  colour jumps from neighbour to neighbour — a mosaic — so the heat is also blurred into a
+  **halo** and composited back over itself with a screen blend (a sliding-window box blur, O(1)
+  per pixel, identical on both axes so the symmetry survives). Light bleeds between cells, the
+  gaps light up, and every falloff becomes a continuous gradient. The ramp is **cathedral
+  glass** — cobalt, violet, magenta, ruby, gold, white — blended in **OKLab** rather than sRGB
+  (a straight lerp between saturated stops dips through a muddy midpoint, which wide gradients
+  show plainly), **baked to a lookup table** at init (the conversion is a dozen transcendentals
+  a sample, far too much per pixel per frame — with the table the whole upgrade costs *less*
+  than the ramp it replaced) and **dithered** with the screen-locked Bayer matrix `torus` and
+  `nebula` already use. The radial vignette fades the ramp **coordinate** rather than the
+  finished colour, so the falloff walks the palette down through gold, ruby, magenta and violet
+  to cobalt: the disc reads as concentric bands of glass, with a gentle luminance falloff on top
+  still carrying the corners to black.
+  Half-block tier (`▀`, board `w × 2h`, two truecolor pixels per cell). Standard **B3/S23**,
+  synchronous, **no wraparound**, and fully deterministic: the symmetric soup is a fixed
+  coordinate hash (never `math/rand` or a wall clock), `Update(tick)` is idempotent (it advances
+  frame by frame and only moves forward, so a repeated tick never double-steps), and the
+  **rebloom** is keyed on the generation count. The rebloom is what keeps it a live gallery piece:
+  a symmetric soup cascades then thins, so when the disc's live **population** drops below a fill
+  floor — the honest signal, since cells culled at the rim keep the raw change-count high — a
+  fresh symmetric soup is seeded and **fades in over the existing embers** rather than snapping,
+  so the refresh reads as a breath (`Done()` is always false — it is ambient, not a one-shot).
+  `life_test.go` pins the `h×w` contract, no-panic, that every visible glyph is the half-block
+  `▀`, **that the live set stays exactly symmetric across many ticks**, a blinker returning to
+  itself after 2 generations, a glider returning shifted by `(1,1)` after 4, `Update` idempotence,
+  determinism across independently-constructed boards, and a golden. *(Two rejected cuts taught the
+  load-bearing lesson: braille made every cell a confetti speck, and ember-coloured soup was still
+  formless noise — the fix was not a better palette but symmetry, which gives the field the focal
+  point and ornament that beauty requires.)* It leaves one residual gap for a future pick: a
+  **`Done()` that returns `true`** — a one-shot resolving into a fixed end-state (a wipe, a
+  typewriter) — which Life, being an ambient loop, never exercises.
 - **`examples/bust`** — the worked example of **"silkscreen the subject, cycle the palette"**
   (`references/palette-cycle-kit.md`, `references/tools.md` §Baking): a classical marble bust under
   a slow, hypnotic color wash — one bust fills the pane and a smooth, continuous diagonal tint

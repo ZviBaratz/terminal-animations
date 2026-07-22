@@ -1,0 +1,9 @@
+{
+  "title": "life",
+  "blurb": "Conway's Game of Life as a symmetric kaleidoscope — a glowing rose window of cathedral glass that fills the frame, blooms, cools, and reblooms",
+  "resolutions": [1],
+  "accent": "#E62E38",
+  "loop": "ambient — reblooms on stagnation",
+  "note": "Conway's Life seeded with 8-fold (D4) symmetry, which its isotropic rules preserve for ever; the sim runs on a square board larger than the pane so the disc grows to FILL the frame. A cell is one pixel, so the heat field is also blurred into a HALO and composited back over itself — light bleeds between cells and every falloff becomes a continuous gradient, which is what makes the colour smooth instead of a mosaic of hard blocks. The ramp is cathedral glass (cobalt, violet, magenta, ruby, gold, white), blended in OKLab, baked to a lookup table and dithered at 8 bits; the radial vignette fades the ramp COORDINATE rather than the finished colour, so the disc reads as concentric bands of glass and the corners still go black. Births ignite over a few frames instead of flashing on in one, so the motion reads as a smooth breath, not a jump. accent #E62E38 is the ruby of the mandala's arms (glassStops). posterTick 24 lands a full-frame rose window — a white-gold jewel core, ruby and gold arms over a cobalt ground — clear symmetry and a strong focal centre that reads the same in both poster panes, so no posterTickPortrait is needed",
+  "posterTick": 24
+}
