@@ -157,6 +157,29 @@ two colours *look*. Convert sRGB → OKLab, pick/space/match there, convert back
 bytes. (The luminance `Y` above is fine for a brightness ramp; it is not a colour
 *distance*.)
 
+**Interpolate there too — then bake the ramp.** Picking stops perceptually and then
+`lerp`ing between them in sRGB is the common half-measure, and it is fine while the field
+is sparse. The moment the field carries *wide smooth gradients* (a glow, a bloom, a broad
+vignette) the two flaws become visible: a straight sRGB blend between two saturated stops
+dips through a **muddy, darker midpoint**, and a piecewise-linear ramp has a **kink at
+every stop** that a wide gradient shows as a Mach band. Both are cheap to fix:
+
+- **Blend in OKLab** — convert the two stops, `lerp` the three components, convert back.
+  Clamp on the way out: a blend of two in-gamut colours can leave sRGB.
+- **Smoothstep the segment parameter** (`t·t·(3-2t)`) so the ramp is C1 across each stop
+  and the kink disappears.
+- **Bake the result into a lookup table** (a few hundred entries) at init and index it
+  per pixel. This is not an optimization, it is what makes the above *affordable*: an
+  OKLab round trip is a dozen-odd `pow`/`cbrt` calls, and evaluating one per pixel per
+  frame measured at roughly **three times an entire frame budget**. With the table the
+  whole upgrade came out **cheaper than the piecewise sRGB lerp it replaced**, because a
+  table index also beats searching the stop list per pixel.
+
+Generalize the last point: **any scalar → colour function is LUT-able**, and per-pixel
+transcendentals are the first thing to hunt when a field animation misses its frame
+budget. Profile the *pixel* loop, not the simulation — the simulation usually isn't the
+problem.
+
 ## Dithering (smooth gradients on a limited ramp/palette)
 
 - **Floyd–Steinberg** (error diffusion): best-looking *stills*, least banding. **But

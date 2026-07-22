@@ -37,6 +37,16 @@ set before the producer in a pipe (`ANSI2PNG_CW=8 go run ... | ansi2png.py`) app
 the producer, not to ansi2png, so it is silently ignored; a flag can't be misdirected:
 
     go run ./cmd/preview frames 5 | ansi2png.py --cw 8 --ch 16 > /tmp/anim.png
+
+--stats prints a numeric read of the frame to *stderr* (stdout still gets the PNG):
+luminance histogram, how much of the frame is dark, and how the lit pixels spread
+across the hue wheel. You still judge beauty by eye — but when a piece looks flat and
+you cannot name why, this names it. A field whose pixels pile into the bottom
+luminance bin with every lit pixel in one or two hue buckets is "one colour on black":
+the designed ramp is not being *reached*, which is a problem in the field feeding the
+palette, not in the palette.
+
+    go run ./cmd/preview frames 5 | ansi2png.py --stats > /tmp/anim.png
 """
 import os
 import re
@@ -52,6 +62,19 @@ GAP_H = 2
 GAP_RGB = (48, 48, 48)
 DEF_FG = (200, 200, 200)
 DEF_BG = (0, 0, 0)
+
+# --stats: a pixel this dark carries no readable hue, so it is counted as unlit rather
+# than smeared across the hue buckets. Roughly where a colour stops being a colour on a
+# dark terminal.
+LIT_MIN = 18
+# --stats: width of a luminance histogram bin. Deliberately *not* LIT_MIN — "dark" is
+# the bottom bin of the histogram (a shape you read off the ramp) while "lit" is the
+# hue-readability cut above, so the two percentages answer different questions and are
+# not expected to sum to 100. Keep the reported threshold derived from this constant:
+# printing one number while counting by another is how they silently disagreed before.
+LUM_BIN = 16
+HUE_NAME = ["red", "orange", "yellow", "chartreuse", "green", "spring",
+            "cyan", "azure", "blue", "violet", "magenta", "rose"]
 
 # The 16 basic ANSI colours (xterm-ish), indexed by 30-37 / 90-97 offset.
 BASIC = [
@@ -325,6 +348,87 @@ def render(rows):
     return width, height, bytes(buf)
 
 
+def stats(rows, width, rgb):
+    """A numeric read of what the frame is actually made of, for --stats.
+
+    You judge beauty by eye — but when a piece looks flat or dull and you cannot name
+    why, looking harder rarely finds it. Measuring does: a field that reads as "one
+    colour on black" shows up here as most of its pixels in the bottom luminance bin
+    and its lit pixels piled into one or two hue buckets, which says the designed ramp
+    is not being *reached* — a problem in the field feeding the palette, not in the
+    palette. Gap bands between filmstrip frames are excluded so they cannot skew it.
+    """
+    ys, y, frames, in_frame = [], 0, 0, False
+    for r in rows:
+        if r is None:
+            y += GAP_H
+            in_frame = False
+        else:
+            if not in_frame:  # a run of text rows between gaps is one frame
+                frames += 1
+                in_frame = True
+            ys.append((y, y + CH))
+            y += CH
+
+    nbins = 256 // LUM_BIN
+    lum_bins = [0] * nbins
+    hue_bins = [0] * 12
+    seen = set()
+    total = lit = 0
+    lum_sum = 0.0
+    lum_max = 0.0
+    for y0, y1 in ys:
+        for yy in range(y0, y1):
+            base = yy * width * 3
+            for xx in range(width):
+                off = base + xx * 3
+                r, g, b = rgb[off], rgb[off + 1], rgb[off + 2]
+                seen.add((r, g, b))
+                total += 1
+                lum = 0.2126 * r + 0.7152 * g + 0.0722 * b
+                lum_sum += lum
+                lum_max = max(lum_max, lum)
+                lum_bins[min(int(lum) // LUM_BIN, nbins - 1)] += 1
+                if lum <= LIT_MIN:
+                    continue
+                lit += 1
+                hi, lo = max(r, g, b), min(r, g, b)
+                if hi == lo:
+                    continue  # greyscale: no hue to bucket
+                span = float(hi - lo)
+                if hi == r:
+                    hue = ((g - b) / span) % 6
+                elif hi == g:
+                    hue = (b - r) / span + 2
+                else:
+                    hue = (r - g) / span + 4
+                hue_bins[int(hue * 60) // 30 % 12] += 1
+
+    if not total:
+        return "ansi2png --stats: no frame content\n"
+
+    pct = lambda n: 100.0 * n / total
+    out = ["ansi2png --stats: %d frame(s), %d px, %d unique colours"
+           % (frames, total, len(seen)),
+           "  luminance  mean %.1f  max %.0f  dark (<%d) %.1f%%  lit (>%d) %.1f%%"
+           % (lum_sum / total, lum_max, LUM_BIN, pct(lum_bins[0]), LIT_MIN, pct(lit)),
+           "  luminance histogram (bins of %d):" % LUM_BIN]
+    for i, n in enumerate(lum_bins):
+        if n:
+            out.append("    %3d-%3d %6.2f%% %s"
+                       % (i * LUM_BIN, i * LUM_BIN + LUM_BIN - 1, pct(n),
+                          "#" * int(pct(n) / 2)))
+    out.append("  hue of lit px (30 deg buckets, % of lit):")
+    if lit:
+        for i, n in enumerate(hue_bins):
+            if n:
+                out.append("    %3d-%3d %6.2f%% %s"
+                           % (i * 30, i * 30 + 29, 100.0 * n / lit, HUE_NAME[i]))
+    else:
+        out.append("    (nothing above the lit threshold)")
+    return "\n".join(out) + "\n"
+
+
 def png(width, height, rgb):
     def chunk(typ, data):
         return (struct.pack(">I", len(data)) + typ + data
@@ -371,6 +475,8 @@ def _parse_args(argv):
     if "-h" in argv or "--help" in argv:
         sys.stdout.write(__doc__)
         sys.exit(0)
+    want_stats = "--stats" in argv
+    argv = [a for a in argv if a != "--stats"]
     flags = {}
     i = 0
     while i < len(argv):
@@ -390,10 +496,11 @@ def _parse_args(argv):
         i += 1
     CW = _resolve("--cw", flags, "ANSI2PNG_CW", CW_DEFAULT)
     CH = _resolve("--ch", flags, "ANSI2PNG_CH", CH_DEFAULT)
+    return want_stats
 
 
 def main():
-    _parse_args(sys.argv[1:])
+    want_stats = _parse_args(sys.argv[1:])
     # Read raw bytes and decode UTF-8 ourselves — the block glyphs are multibyte,
     # so a C/POSIX-locale stdin (a sandbox, CI) must not gate on the ascii codec.
     if hasattr(sys.stdin, "buffer"):
@@ -405,6 +512,10 @@ def main():
         sys.stderr.write("ansi2png: no frame content on stdin\n")
         return 1
     w, h, rgb = render(rows)
+    # The report goes to stderr because stdout carries the PNG: `... | ansi2png.py
+    # --stats > /tmp/f.png` both writes the image and prints the numbers.
+    if want_stats:
+        sys.stderr.write(stats(rows, w, rgb))
     out = sys.stdout.buffer if hasattr(sys.stdout, "buffer") else sys.stdout
     out.write(png(w, h, rgb))
     return 0

@@ -32,6 +32,18 @@
 # `period`, so the dump spans 0 … period−stride and wrapping back to frame 0 is just
 # one more stride — continuous. A full-motion field compresses poorly as a GIF (a
 # 640px/120-frame nebula is several MB); the MP4 is the smaller, sharper artifact.
+#
+# Size note (the GIF, not the MP4). File size tracks *source pixels × frames*, and a
+# field of continuous gradients — a glow, a bloom, a dithered wash — costs several
+# times more per pixel than a sparse one, because a 256-colour palette plus dithering
+# turns every smooth ramp into high-entropy noise. Adding a glow to an animation can
+# double its GIF for an unchanged recipe.
+#
+#   To shrink one, cut the PANE (the `frames … W H` you dump) or the frame count —
+#   NOT --width on its own. --width only matches the raster when it equals
+#   pane_width × --cw; any other value makes this script rescale the frames, which
+#   invents intermediate colours and can leave the file BIGGER than the width you
+#   were trying to shrink from.
 set -euo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

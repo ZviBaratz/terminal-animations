@@ -101,11 +101,52 @@ Gradients want luminance; stipple and texture want density. Most fields with a
 smooth falloff keep the bulk of their brightness on luminance, so a dim region
 stays a dim wash rather than confetti.
 
+## A per-cell field is a mosaic until you diffuse it
+
+The channel rule above is about one cell. This one is about *neighbours*, and it is
+the thing that separates a field that glows from one that tiles.
+
+If the signal is **one value per cell** — a simulation grid, a particle count, a
+Game-of-Life board, anything sampled rather than swept — then adjacent cells carry
+independent values and the colour **jumps** at every cell boundary. The result reads
+as a mosaic of hard-edged blocks no matter how good the palette is, and no amount of
+palette work fixes it, because the discontinuity is in the *field*, not the colours.
+
+**The fix is spatial: blur the field into a halo and composite it back over itself.**
+Light then bleeds between cells, the gaps light up, and a bright cell's falloff
+becomes a continuous gradient instead of stopping at its border. It is the single
+highest ratio of beauty gained to code changed in this whole file.
+
+- **Composite with a screen blend** — `out = 1 - (1-field)·(1-gain·halo)` — not a
+  clamped sum. A sum blows the core to a flat white disc as soon as the gain is
+  interesting; a screen blend can only lift toward white, so raising the gain deepens
+  the glow instead of destroying the structure.
+- **Blur the scalar field, before the palette.** It is an emission field; blurring
+  the finished RGB instead smears hues together into mud.
+- **Two passes of a box blur ≈ a Gaussian**, and a **sliding-window** box blur is O(1)
+  per pixel whatever the radius — carry a running sum and step it. The obvious
+  re-add-every-tap version is what makes people believe a blur is too expensive for a
+  frame budget; it isn't.
+- **If the field is symmetric, make the grid odd-sided.** A blur reads the whole grid,
+  and on an even side the mirror of column 0 falls off the far edge, so edge taps differ
+  between the two halves and the light tilts — even while the underlying cells stay
+  perfectly symmetric. Cells confined to the interior never notice; the halo does.
+- **Guard the negative space.** Diffusion fills the gaps that were carrying the "lit
+  shapes over dark space" rule above. Sweep the gain and stop at the value where the
+  darks are still dark.
+
 ## Composition
 
 - **An edge vignette** — fade the outermost rows and columns to nothing — so the
   animation never meets a hard rectangular border. A hard edge reads as a *box*;
   a vignette reads as a window onto something larger.
+- **Fade the ramp coordinate, not the colour.** The obvious vignette multiplies the
+  finished RGB toward black, which only *dims* — the edge is the same hue, darker.
+  Scale the palette's **input** instead (`palette(value · vignette)`) and the fade
+  walks down the ramp through its cooler end, so the falloff is a colour *arc*: the
+  piece gains concentric colour zones for nothing, and the ramp's cold stops — usually
+  the least-visited part of a palette — finally get shown. Keep a gentle luminance
+  multiply on top if you still need a true black at the very edge.
 - **Anchor to a focal point.** Motion that emanates from, orbits, or recedes toward
   a point reads as intentional; motion with no origin reads as noise.
 - **Choose the subject to the medium.** A cell grid is coarse, low-colour-depth, and
@@ -169,6 +210,21 @@ constant against what you actually see. A constant with no live knob (a package
 `const`) is worth lifting to a temporary `var` or env read while you sweep it, then
 folding back once chosen.
 
+**But measure when looking isn't finding it.** Judging by eye decides *which* value
+is better. It is bad at answering "this looks flat and I can't say why" — you can
+stare at a frame for a long time without noticing that three quarters of it is nearly
+black, or that a seven-stop palette is only ever rendering two of its stops. So when a
+piece is disappointing and the cause won't name itself, take one numeric read of a
+frame (`ansi2png.py --stats`: luminance histogram, dark fraction, hue spread of the
+lit pixels) before sweeping anything.
+
+The diagnosis to look for: **most pixels in the bottom luminance bin, with the lit
+ones piled into one or two hue buckets.** That says the designed ramp is not being
+*reached* — the field feeding the palette never visits the palette's middle — so the
+fix is in the field (longer trails, spatial diffusion, a different value mapping), and
+every hour spent re-picking colour stops is wasted. Sweeping constants cannot find
+this, because no value of any constant is wrong; the signal is.
+
 ## The tuning loop
 
 - **Inner loop (fast):** render N frames to the terminal, or to text/PNG, and check
@@ -182,3 +238,11 @@ folding back once chosen.
   did **the one special idea** land? The craft pass rejects broken; the vision pass rejects
   *merely competent*, and it is allowed to. Tune, and repeat until it reads right. The
   `${CLAUDE_PLUGIN_ROOT}/scripts/` harness runs both loops.
+- **When the author is the judge, show candidates — don't guess.** A revision request
+  like *"nicer colours"* or *"make it prettier"* has no single right answer, and
+  guessing spends a whole build to find out. Prototype **in a throwaway copy** (so the
+  real tree stays clean while every knob is an env var), render **two to four labelled
+  directions** as one comparison image plus a short GIF of the front-runner, and let
+  the author pick. One round of that ended a piece that had already been rejected three
+  times on taste. It also converts vague dissatisfaction into a decision you can build
+  against, which is worth more than the render time.

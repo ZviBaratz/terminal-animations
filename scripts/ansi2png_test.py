@@ -226,6 +226,45 @@ def main():
     assert r.returncode == 2, r.returncode
     assert b"ANSI2PNG_CW" in r.stderr, r.stderr
 
+    # --stats reports to stderr while stdout still carries a valid PNG, counts *frames*
+    # (not text rows), and buckets the lit pixels by hue. Two frames: one all-red cell
+    # and one all-blue, so the expected report is exact — half the lit pixels red, half
+    # blue, and nothing dark.
+    two = ("--- frame 0 ---\n"
+           "\x1b[48;2;255;0;0m \x1b[0m\n"
+           "--- frame 1 ---\n"
+           "\x1b[48;2;0;0;255m \x1b[0m\n")
+    p = run_raw(two.encode(), env, ["--stats"])
+    assert p.returncode == 0, p.stderr
+    ws, hs, _ = decode_png(p.stdout)          # stdout is still the image
+    assert (ws, hs) == (cw, 2 * ch + 2), (ws, hs)
+    report = p.stderr.decode()
+    assert "2 frame(s)" in report, report      # frames, not the 2 text rows
+    assert "% of lit" in report, report        # not a literal %%
+    assert "red" in report and "blue" in report, report
+    for line in report.splitlines():
+        if line.strip().startswith("0- 29"):   # the red bucket
+            assert "50.00%" in line, line
+
+    # The two summary percentages are deliberately different cuts — "dark" is the
+    # bottom histogram bin, "lit" is the higher hue-readability threshold — so each
+    # must report the cut it actually counted. A frame painted at luminance 17.2
+    # (0,24,0) sits in the gap between them: above the bottom bin, below the lit
+    # threshold, so BOTH percentages are 0 and the header has to say so honestly.
+    # Printing one threshold while counting by another is exactly the bug this pins.
+    gap = "--- frame 0 ---\n\x1b[48;2;0;24;0m \x1b[0m\n"
+    g = run_raw(gap.encode(), env, ["--stats"])
+    assert g.returncode == 0, g.stderr
+    grep = g.stderr.decode()
+    head = [l for l in grep.splitlines() if "luminance  mean" in l][0]
+    assert "dark (<16)" in head, head        # the bin edge, not LIT_MIN
+    assert "lit (>18)" in head, head         # the lit cut names its own threshold
+    assert "dark (<16) 0.0%" in head, head   # nothing in the bottom bin...
+    assert "lit (>18) 0.0%" in head, head    # ...and nothing above the lit cut
+    bins = [l.strip() for l in grep.splitlines() if l.startswith("    ") and "%" in l]
+    assert any(b.startswith("16- 31 100.00%") for b in bins), bins
+    assert not any(b.startswith("0- 15") for b in bins), bins
+
     print("ansi2png_test: OK")
     return 0
 

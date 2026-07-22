@@ -135,3 +135,17 @@ entirely** — on a Python with a pre-Unicode-16 `unicodedata` the parse loop em
 shearing every row that contains one. Those two tiers only read faithfully on a real
 terminal or the GIF gate; see the headless-gate column in
 [`techniques.md`](techniques.md#the-spatial-resolution-ladder).
+
+**`--stats` when looking isn't finding it.** Judging by eye stays the rule, but "it looks
+flat and I can't say why" is the one question the eye is bad at. `--stats` adds a numeric
+read of the frame on *stderr*, so stdout still carries the PNG:
+
+```sh
+go run ./cmd/preview frames 5 | ${CLAUDE_PLUGIN_ROOT}/scripts/ansi2png.py --stats > /tmp/f.png
+```
+
+Read it for the shape, not the digits. Most pixels in the bottom luminance bin with the lit
+ones piled into one or two hue buckets means **the designed ramp is never being reached** —
+a fault in the field feeding the palette, not in the palette, and one no amount of
+re-picking colour stops will fix. That is a report to the author, not something to sweep —
+see [`craft.md`](craft.md) §"Tune by looking".

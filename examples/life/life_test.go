@@ -4,8 +4,10 @@ import (
 	"flag"
 	"math"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -376,5 +378,52 @@ func TestGolden(t *testing.T) {
 	}
 	if got != string(want) {
 		t.Fatalf("View at (%d,%d) tick %d drifted from golden %s", w, h, tick, path)
+	}
+}
+
+// TestFramesDumpIsHonest: the FIRST frame of a dump must be the tick that was asked
+// for, not the re-seed.
+//
+// cmd/preview constructs Life at 80×24 and wires render() over it, so a dump at any
+// other pane hits View's resize path — which calls reset() and throws away whatever
+// Update(tick) just computed. Without the discarded warm-up render in cmd/preview, the
+// first dumped frame is therefore the fresh seed at *every* start tick, which is why
+// this failed so quietly: nothing errors, every dump looks plausible, and a sweep of a
+// taste constant comes out byte-identical at every value — reading as "this knob does
+// nothing" rather than as a bug.
+//
+// The teeth: two one-frame dumps at well-separated start ticks. They are identical iff
+// the seed is leaking through, so deleting the warm-up call from cmd/preview fails this.
+// It shells out because the defect lives in main()'s wiring, not in the life package —
+// testing New/Update/View directly would pass with the bug fully present.
+func TestFramesDumpIsHonest(t *testing.T) {
+	if _, err := exec.LookPath("go"); err != nil {
+		t.Skip("no go toolchain on PATH")
+	}
+	bin := filepath.Join(t.TempDir(), "preview")
+	if out, err := exec.Command("go", "build", "-o", bin, "./cmd/preview").CombinedOutput(); err != nil {
+		t.Fatalf("build cmd/preview: %v\n%s", err, out)
+	}
+	// A pane deliberately unequal to the 80×24 Life is constructed at, so View resizes.
+	// The `--- frame N ---` header is dropped: it echoes the requested tick and so
+	// differs even when the pixels below it are the identical re-seed — comparing whole
+	// stdout would make this test pass with the bug fully present.
+	dump := func(start int) string {
+		args := []string{"frames", "1", "1", "100", "30", strconv.Itoa(start)}
+		out, err := exec.Command(bin, args...).Output()
+		if err != nil {
+			t.Fatalf("preview %v: %v", args, err)
+		}
+		_, body, found := strings.Cut(string(out), "\n")
+		if !found {
+			t.Fatalf("preview %v: no frame body under the header", args)
+		}
+		return body
+	}
+	early, late := dump(3), dump(400)
+	if early == late {
+		t.Fatal("one-frame dumps at tick 3 and tick 400 have byte-identical pixels: the " +
+			"first frame is the re-seed, not the tick asked for (warm-up render missing " +
+			"in cmd/preview — see scripts/preview/main.go.tmpl)")
 	}
 }

@@ -65,6 +65,16 @@ func main() {
 				start = v
 			}
 		}
+		// Warm-up render, discarded: life owns its dimensions and re-seeds when View is
+		// asked for a pane it was not constructed at, so without this the FIRST dumped
+		// frame is the fresh seed rather than the tick asked for — which silently makes a
+		// one-frame dump identical at every tick, and a sweep of any constant that acts
+		// through the sim's stepping identical at every value (a View-time constant still
+		// moves, since View runs on the frozen seed — so the symptom looks selective).
+		// Rendering once and throwing it away moves the re-seed before the dump.
+		// (Same guard as scripts/preview/main.go.tmpl; pinned by TestFramesDumpIsHonest.)
+		render(w, h, 0)
+
 		for i := 0; i < n; i++ {
 			tick := start + i*stride
 			frame, _ := render(w, h, tick)

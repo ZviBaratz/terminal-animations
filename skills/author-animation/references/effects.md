@@ -37,7 +37,12 @@ reimplement — plus what makes it *read*.
   it read as a lit solid.
 - **Conway's Life** — next cell alive iff (neighbours==3) or (alive && neighbours==2).
   Emergent gliders/oscillators — great ambient texture. Its goldens are crisp (see the
-  skill's Test section).
+  skill's Test section). A *random soup* of it is intrinsically noise, though: a glyph in
+  every cell, no focal point (`craft.md`). Its rules are **isotropic**, so a seed built
+  with a symmetry group stays symmetric for every later generation *for free* — seeding
+  D4 (the square's 8-fold group) turns the identical churn into a kaleidoscope with a
+  centre. Never enforce the symmetry inside the step; ride the rules' own equivariance
+  from a symmetric seed.
 - **Digital rain (Matrix)** — per column: a bright falling head + a fading tail (a
   brightness ramp down the trail), random glyph churn, respawn at top. (This *is*
   fresco's `rain` — reach for the provider before rebuilding it.)
@@ -70,6 +75,10 @@ The step up:
   (`techniques.md`) is a different, far higher-fidelity object than the `.·+*#@` version.
 - **Drive one with another** — let a plasma field modulate a rain's colour, or fire's
   heat displace a tunnel.
+- **Bloom a per-cell field into a glow.** Anything sampled per cell — Life, boids,
+  metaball hits, a particle count — renders as hard-edged blocks until you blur it into
+  a halo and screen it back over itself. It is the difference between a mosaic and light
+  (`craft.md`: *a per-cell field is a mosaic until you diffuse it*).
 - **Design the palette** (`craft.md` two channels; `techniques.md` depth/dither) instead
   of picking "grey → white → cyan" by reflex.
 
