@@ -151,6 +151,23 @@ go run ./cmd/preview frames 5 | ./scripts/ansi2png.py --cw 8 --ch 16 > /tmp/anim
 Prefer the flags — an env var set before the `|` (`ANSI2PNG_CW=8 go run … | ansi2png.py`)
 applies to the *producer*, not to `ansi2png`, so it is silently ignored.
 
+**`--stats` — measure the frame when looking isn't finding it.** Judging by eye stays the
+rule, but "it looks flat and I can't say why" is a question the eye is bad at. `--stats`
+prints a luminance histogram, how much of the frame is dark, and how the lit pixels spread
+across the hue wheel — to *stderr*, so stdout still carries the PNG:
+
+```sh
+go run ./cmd/preview frames 5 | ./scripts/ansi2png.py --stats --cw 6 --ch 12 > /tmp/anim.png
+```
+
+Read it for the shape, not the digits. Most pixels in the bottom luminance bin with the lit
+ones piled into one or two hue buckets means **the designed ramp is not being reached** —
+the palette is fine, the field feeding it never visits the palette's middle. That is a fix
+in the field (longer trails, spatial diffusion, a different mapping), not in the colours.
+`examples/life` was measured at 76% of pixels below luminance 16 with 19% of lit pixels
+orange against 4% violet — a seven-stop ramp rendering as orange-on-black — which is what
+sent that rework at the field instead of at the stops.
+
 ### The moving artifact, still no vhs — `record-headless.sh`
 
 `ansi2png.py` gives you a still filmstrip; `record-headless.sh` gives you the *moving*
