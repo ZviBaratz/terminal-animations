@@ -67,6 +67,12 @@ DEF_BG = (0, 0, 0)
 # than smeared across the hue buckets. Roughly where a colour stops being a colour on a
 # dark terminal.
 LIT_MIN = 18
+# --stats: width of a luminance histogram bin. Deliberately *not* LIT_MIN — "dark" is
+# the bottom bin of the histogram (a shape you read off the ramp) while "lit" is the
+# hue-readability cut above, so the two percentages answer different questions and are
+# not expected to sum to 100. Keep the reported threshold derived from this constant:
+# printing one number while counting by another is how they silently disagreed before.
+LUM_BIN = 16
 HUE_NAME = ["red", "orange", "yellow", "chartreuse", "green", "spring",
             "cyan", "azure", "blue", "violet", "magenta", "rose"]
 
@@ -364,7 +370,8 @@ def stats(rows, width, rgb):
             ys.append((y, y + CH))
             y += CH
 
-    lum_bins = [0] * 16
+    nbins = 256 // LUM_BIN
+    lum_bins = [0] * nbins
     hue_bins = [0] * 12
     seen = set()
     total = lit = 0
@@ -381,7 +388,7 @@ def stats(rows, width, rgb):
                 lum = 0.2126 * r + 0.7152 * g + 0.0722 * b
                 lum_sum += lum
                 lum_max = max(lum_max, lum)
-                lum_bins[min(int(lum) // 16, 15)] += 1
+                lum_bins[min(int(lum) // LUM_BIN, nbins - 1)] += 1
                 if lum <= LIT_MIN:
                     continue
                 lit += 1
@@ -403,13 +410,14 @@ def stats(rows, width, rgb):
     pct = lambda n: 100.0 * n / total
     out = ["ansi2png --stats: %d frame(s), %d px, %d unique colours"
            % (frames, total, len(seen)),
-           "  luminance  mean %.1f  max %.0f  dark (<%d) %.1f%%  lit %.1f%%"
-           % (lum_sum / total, lum_max, LIT_MIN, pct(lum_bins[0]), pct(lit)),
-           "  luminance histogram (bins of 16):"]
+           "  luminance  mean %.1f  max %.0f  dark (<%d) %.1f%%  lit (>%d) %.1f%%"
+           % (lum_sum / total, lum_max, LUM_BIN, pct(lum_bins[0]), LIT_MIN, pct(lit)),
+           "  luminance histogram (bins of %d):" % LUM_BIN]
     for i, n in enumerate(lum_bins):
         if n:
-            out.append("    %3d-%3d %6.2f%% %s" % (i * 16, i * 16 + 15, pct(n),
-                                                   "#" * int(pct(n) / 2)))
+            out.append("    %3d-%3d %6.2f%% %s"
+                       % (i * LUM_BIN, i * LUM_BIN + LUM_BIN - 1, pct(n),
+                          "#" * int(pct(n) / 2)))
     out.append("  hue of lit px (30 deg buckets, % of lit):")
     if lit:
         for i, n in enumerate(hue_bins):

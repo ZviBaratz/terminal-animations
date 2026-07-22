@@ -441,10 +441,15 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   so the first frame of any dump at a *different* size was whatever that re-seed had just
   produced, not the tick asked for. It failed in the worst way available: silently, and
   identically for every input, so a **one-frame dump rendered the seed at every tick** and a
-  sweep of a taste constant came out byte-identical at every value — which reads as "this
-  knob does nothing" rather than as a bug. A discarded warm-up render now moves the re-seed
+  sweep of any constant acting through the sim's stepping came out byte-identical at every
+  value — which reads as "this knob does nothing" rather than as a bug. A View-time constant
+  still moved (`View` runs on the frozen seed), so the symptom looked selective, not systemic. A discarded warm-up render now moves the re-seed
   ahead of the dump (a pure `Frame` carries no state, so for one it is only a wasted call).
-  Fixed in the template and in `examples/life`, the only stateful example.
+  Fixed in the template and in `examples/life`, the only stateful example, and pinned by
+  `TestFramesDumpIsHonest` — it builds `cmd/preview` and asserts that one-frame dumps at
+  two far-apart start ticks do not render identical pixels, which is exactly what the bug
+  did. The test compares the frame *body*: the `--- frame N ---` header echoes the
+  requested tick, so comparing whole stdout passes with the bug fully present.
 
 - **The "nothing to publish" guard in `pages.yml` could never fire.** Without `shopt -s nullglob`,
   an unmatched bash glob expands to its own literal text, so `for dir in examples/*/cmd/wasm`

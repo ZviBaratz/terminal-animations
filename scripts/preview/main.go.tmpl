@@ -79,10 +79,13 @@ func main() {
 		// render() closes over one built at some other size (the usual wiring), the
 		// FIRST dumped frame is whatever the re-seed just produced, not the tick that
 		// was asked for. That is silent and vicious: a one-frame dump renders the seed
-		// at every tick, so a sweep of a taste constant comes out byte-identical across
-		// every value and reads as "the knob does nothing". Rendering once and throwing
-		// it away moves the re-seed before the dump, so frame 0 is honest. A pure Frame
-		// carries no state, so for one it is only a wasted call.
+		// at every tick, so a sweep of any constant that acts through the sim's stepping
+		// comes out byte-identical across every value and reads as "the knob does
+		// nothing" — while a View-time constant still moves, since View runs on the
+		// frozen seed, which makes the symptom look selective rather than systemic.
+		// Rendering once and throwing it away moves the re-seed before the dump, so
+		// frame 0 is honest. A pure Frame carries no state, so for one it is only a
+		// wasted call. examples/life carries the regression test (TestFramesDumpIsHonest).
 		render(w, h, 0)
 
 		for i := 0; i < n; i++ {
