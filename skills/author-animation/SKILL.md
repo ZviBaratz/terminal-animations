@@ -139,7 +139,13 @@ The generic answer to any brief is one effect in flat ASCII. Compose past it:
   detail are higher objects than the `.·+*#@` ramp. Don't settle for 1×1 ASCII by reflex.
 - **Design the palette**, don't pick colours functionally. Split brightness across the
   two channels — glyph density vs colour luminance (`craft.md`) — and dither gradients
-  (Bayer for motion, `techniques.md`).
+  (Bayer for motion, `techniques.md`). Interpolate the ramp in OKLab and **bake it to a
+  LUT** — done per pixel the conversion costs multiples of a frame budget; done once it is
+  cheaper than the sRGB lerp it replaces (`techniques.md`).
+- **Diffuse a per-cell field, or it renders as a mosaic.** Anything sampled per cell (a
+  sim grid, particles, a Life board) jumps in colour at every cell boundary however good
+  the palette is. Blur it into a halo and screen it back over itself — that is what turns
+  blocks into light (`craft.md` §"A per-cell field is a mosaic until you diffuse it").
 - **Get the motion past a slide.** For a subject, "moving" the generic way is a translate —
   a pan, a bob, an ellipse (two quarter-phase sinusoids). Two ways past it: **move the
   subject in 3D** (a pseudo-3D turn, parallax, a relighting sweep, atmosphere at its own rate
@@ -200,7 +206,8 @@ would be and check it at the beauty gate instead, as `examples/{plasma,torus}` d
 
 Do not ship on "tests pass": **watch it move, in colour.** Use `${CLAUDE_PLUGIN_ROOT}/scripts/`
 — `preview.sh` (live), `frames` mode for a headless structure check, `ansi2png.py` to
-rasterize `frames` into a PNG you can look at with no TTY (a sandbox, CI, an agent),
+rasterize `frames` into a PNG you can look at with no TTY (a sandbox, CI, an agent) —
+add `--stats` for a numeric read when a frame disappoints and you can't name why —
 `record.sh` for the GIF.
 Sweep each taste constant and pick by eye. The optional **`tuner`** subagent drives this.
 
@@ -230,6 +237,13 @@ not a constant it can reach. If the gate keeps failing on the same slot, change 
 - **Baking the light and the backdrop into flat frames**, then wondering why it's lifeless —
   a light and a fog that move can't be frozen; keep the subject's alpha and synthesize them
   live (`tools.md` §Baking).
+- **Re-picking colour stops to fix a field that never reaches them.** When a frame looks
+  flat and you can't name why, measure it before you sweep: `ansi2png.py --stats`. Most
+  pixels near-black with the lit ones in one or two hue buckets is a *field* problem, and
+  no palette edit touches it (`craft.md` §"Tune by looking").
+- **Guessing at "make it prettier".** A subjective revision is a question, not a spec —
+  render two to four labelled directions and let the author choose, rather than spending a
+  build on one guess (`craft.md` §"The tuning loop").
 - **"It passes and looks fine" on a piece that misses the Vision Card** — competent is not
   the bar; the beauty gate grades against the vision and may fail merely-competent.
 - **Functional colour** (grey→white→cyan by reflex) instead of a *designed* palette.

@@ -31,13 +31,21 @@ has the resolution-ladder / colour / dither levers if a fix needs one. The harne
    wall of glyphs, not empty), consecutive frames genuinely differ, no stuck
    points over moving parts.
 
-3. **Sweep, don't guess.** For each taste constant, render a small sweep of
+3. **Measure once before you sweep.** Take a numeric read of one frame —
+   `go run ./cmd/preview frames 5 | ${CLAUDE_PLUGIN_ROOT}/scripts/ansi2png.py --stats > /tmp/anim.png`
+   — which prints a luminance histogram, the dark fraction and the hue spread of the lit
+   pixels to stderr. This is not a substitute for looking; it is for the fault the eye
+   *can't* name. Most pixels in the bottom luminance bin with the lit ones piled into one
+   or two hue buckets means the palette is never being **reached** — no constant is wrong,
+   the field feeding it is — which is a report to the author (step 6), not a sweep.
+
+4. **Sweep, don't guess.** For each taste constant, render a small sweep of
    candidate values and compare — *in colour*. A constant with a live knob
    (a channel weight exposed as an arg/env) sweeps from the command line; a bare
    `const` you lift to a temporary `var`/env read, sweep, then fold back. Change
    **one constant at a time**. Record what each value does in one line.
 
-4. **Beauty gate — watch the motion.** If `vhs`, `ttyd`, `ffmpeg` are on PATH,
+5. **Beauty gate — watch the motion.** If `vhs`, `ttyd`, `ffmpeg` are on PATH,
    `${CLAUDE_PLUGIN_ROOT}/scripts/record.sh --build "go build -o /tmp/anim ./cmd/preview" -- /tmp/anim`
    and judge the GIF. If they are not, you still cannot skip the colour: rasterize
    the frames to an image and look —
@@ -45,7 +53,7 @@ has the resolution-ladder / colour / dither levers if a fix needs one. The harne
    or Read `/tmp/anim.png` and judge the hue and motion by eye. Reasoning colour
    from the formula without rendering is the shortcut this pass exists to stop.
 
-5. **Converge — against craft *and* the vision.** Repeat until it passes the craft.md
+6. **Converge — against craft *and* the vision.** Repeat until it passes the craft.md
    visual checklist (motion reads as motion, enough dark space, no stuck pixels or width
    bugs, legible on a dark background) **and** matches the piece's **Vision Card** (in the
    package doc-comment / README, SKILL §1) slot by slot — the motion verb, the light, the
@@ -55,7 +63,10 @@ has the resolution-ladder / colour / dither levers if a fix needs one. The harne
    a frequency, a floor. That can make a flat pan a nicer flat pan; it **cannot** add a
    missing mist layer, introduce a relighting sweep, or turn a pan into a pseudo-3D turn.
    When a Vision-Card slot keeps failing no matter how you sweep, that is a **motion-model /
-   composition gap for the author**, not a constant — stop sweeping and say so plainly.
+   composition gap for the author**, not a constant — stop sweeping and say so plainly. The
+   `--stats` read in step 3 is the usual evidence for that call: a ramp that is never
+   reached, or a field with no spatial diffusion, is a change to what is *rendered*, and no
+   value of any existing constant fixes it.
 
 ## Report
 

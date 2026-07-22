@@ -228,8 +228,51 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   running animation to show what something looks like.
 - **Self-hosted type: Departure Mono + JetBrains Mono**, both OFL 1.1 with no Reserved Font Name
   (verified in the bundled licences, not the project pages), subsetted to 37KB total.
+- **`scripts/ansi2png.py --stats`** — a numeric read of a frame: luminance histogram, the
+  fraction that is dark, and how the lit pixels spread across the hue wheel, printed to
+  *stderr* so stdout still carries the PNG. Judging by eye stays the rule; this is for the
+  question the eye is bad at — *"it looks flat and I can't say why."* The diagnosis it
+  exists to surface is **most pixels in the bottom luminance bin with the lit ones piled
+  into one or two hue buckets**, which means the designed ramp is never being *reached*: a
+  problem in the field feeding the palette, not in the palette, and one that no amount of
+  re-picking colour stops can fix. `examples/life` measured at 76% of its pixels below
+  luminance 16 and 19% of lit pixels orange against 4% violet — a seven-stop ramp rendering
+  as orange-on-black — which is what aimed its rework at the field instead of at the stops.
 
 ### Changed
+
+- **The craft rubric learns spatial diffusion, ramp mechanics, and when to measure**, all
+  from building `examples/life`:
+  - `craft.md` gains **"A per-cell field is a mosaic until you diffuse it"** — the rule that
+    a field sampled per cell (a sim grid, particles, a Life board) jumps in colour at every
+    cell boundary however good the palette is, and the fix is spatial: blur it into a halo
+    and composite back with a **screen blend** (a clamped sum blows the core to a white
+    disc), blurring the *scalar field* rather than the finished RGB, with a sliding-window
+    box blur so the cost is O(1) per pixel. Includes the trap that a blur of a *symmetric*
+    field needs an **odd-sided grid**, or edge taps differ between the halves and the light
+    tilts while the cells stay perfectly symmetric.
+  - `craft.md` Composition gains **fade the ramp coordinate, not the colour** — scaling the
+    palette's input rather than multiplying its output turns a vignette from a dimming into
+    a colour *arc*, which is where a ramp's cold stops finally get shown.
+  - `techniques.md` extends the OKLab section past picking stops to **interpolating** in
+    OKLab, smoothstepping each segment for C1 continuity, and **baking the ramp to a LUT** —
+    not an optimization but what makes it affordable: per pixel the conversion measured at
+    ~3× an entire frame budget, while the baked table came out *cheaper* than the sRGB lerp
+    it replaced. Generalized to: any scalar → colour function is LUT-able, and per-pixel
+    transcendentals are the first thing to hunt when a field animation misses its budget.
+  - `craft.md` §"Tune by looking" gains **measure when looking isn't finding it**, and
+    §"The tuning loop" gains **show candidates when the author is the judge** — a subjective
+    revision ("nicer colours") is a question, so render two to four labelled directions and
+    let them choose instead of spending a build on one guess.
+  - `effects.md` notes that a *random-soup* Life is intrinsically noise while its
+    **isotropic rules preserve a symmetric seed for free**, and adds bloom to the combining
+    moves. `agents/tuner.md` gains a measure-first step and cites it as the evidence for
+    calling a fault out of a tuner's reach. `SKILL.md` picks up the two new red flags.
+- **`scripts/record-headless.sh`** documents the GIF size model: file size tracks *source
+  pixels × frames*, a field of continuous gradients costs several times more per pixel than
+  a sparse one (adding a glow can double the GIF), and `--width` is a trap — it only matches
+  the raster when it equals `pane_width × --cw`, and any other value rescales, invents
+  intermediate colours, and can leave the file *bigger* than the width being shrunk from.
 
 - **The skill now makes the vision *load-bearing* — it is graded, not just elicited.** The
   Brief's "one special idea" used to be stated once and then abandoned, so a build could pass
@@ -391,6 +434,17 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   viewer disables Δ and says why, instead of letting you hunt for a match that cannot exist.
 
 ### Fixed
+
+- **The first frame of a `frames` dump was a lie.** A stateful `Animation` owns its
+  dimensions and re-seeds when `View` is asked for a pane it was not constructed at, and
+  `scripts/preview/main.go.tmpl` wires `render()` over an animation built at a fixed size —
+  so the first frame of any dump at a *different* size was whatever that re-seed had just
+  produced, not the tick asked for. It failed in the worst way available: silently, and
+  identically for every input, so a **one-frame dump rendered the seed at every tick** and a
+  sweep of a taste constant came out byte-identical at every value — which reads as "this
+  knob does nothing" rather than as a bug. A discarded warm-up render now moves the re-seed
+  ahead of the dump (a pure `Frame` carries no state, so for one it is only a wasted call).
+  Fixed in the template and in `examples/life`, the only stateful example.
 
 - **The "nothing to publish" guard in `pages.yml` could never fire.** Without `shopt -s nullglob`,
   an unmatched bash glob expands to its own literal text, so `for dir in examples/*/cmd/wasm`
